@@ -34,7 +34,16 @@ const addUser = async (payload) => {
       RoleID: role._id,
       PermissionID: permission._id,
       jwt_token: payload.token,
+      PayType: payload.PayType,
+      DniNieNumber: payload.DniNumber,
+      IsResident: payload.IsResident,
+      Education: payload.Education,
+      ContactNumber: payload.ContactNumber,
+      Address: payload.Address,
+      City: payload.City,
+      Gender: payload.Gender,
     });
+
     await post.save();
 
     return post;

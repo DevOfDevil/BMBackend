@@ -4,6 +4,7 @@ const UserServices = require("../service/user");
 const RoleMdl = require("../models/Role");
 const DeviceMdl = require("../models/userDevice");
 const CategoryMdl = require("../models/Category");
+const CategoryPurchasedMdl = require("../models/CategoryPurchased");
 const paymentMdl = require("../models/paymentTransaction");
 
 var jwt = require("jsonwebtoken");
@@ -92,7 +93,15 @@ const signup = async (req, res) => {
       categoryIds,
       DeviceType,
       DeviceMac,
+      DniNumber,
+      IsResident,
+      Education,
+      ContactNumber,
+      Address,
+      City,
+      Gender,
     } = req.body;
+
     const checkEmailExits = await UserServices.getUserBy({
       EmailAddress: email,
     });
@@ -127,7 +136,7 @@ const signup = async (req, res) => {
         };
       }
 
-      return { status: true }; // Category is valid
+      return { status: true, category }; // Category is valid
     });
 
     // Wait for all category checks to complete
@@ -150,42 +159,65 @@ const signup = async (req, res) => {
       EmailAddress: email,
       Password: password,
       categoryIDs: categoryIds, // Save the array of category IDs
+      DniNumber: DniNumber,
+      IsResident: IsResident,
+      Education: Education,
+      ContactNumber: ContactNumber,
+      Address: Address,
+      City: City,
+      Gender: Gender,
       token: "pre-user",
+      PayType: "Online",
     });
+    if (addUser) {
+      //add Device Data
+      const AddDevic = new DeviceMdl({
+        device_name: DeviceType,
+        device_mac: DeviceMac,
+        user_id: addUser._id,
+        is_activated: true,
+      });
+      await AddDevic.save();
+      // Generate JWT token
+      var token = jwt.sign({ data: addUser._id }, config.jwt_secret, {
+        expiresIn: config.jwt_expire,
+      });
+      //Add Category seperatly
+      const AddCatPaymentProcess = categoryResults.map(async (category) => {
+        const addCatPayment = new CategoryPurchasedMdl({
+          userID: addUser._id,
+          CatID: category.category._id,
+          CatPrice: category.category.Price,
+          IsDeleted: false,
+        });
+        await addCatPayment.save();
+      });
 
-    //add Device Data
-    const AddDevic = new DeviceMdl({
-      device_name: DeviceType,
-      device_mac: DeviceMac,
-      user_id: addUser._id,
-      is_activated: true,
-    });
-    await AddDevic.save();
-    // Generate JWT token
-    var token = jwt.sign({ data: addUser._id }, config.jwt_secret, {
-      expiresIn: config.jwt_expire,
-    });
-
-    // Update the user with the token
-    const updateUser = await UserServices.updateUser(addUser._id, {
-      jwt_token: token,
-    });
-    console.log(updateUser._id);
-    // Get user details
-    const userDetails = await UserServices.getUserFrontendDetails(
-      updateUser._id
-    );
-    const TotalFee = userDetails.categoryIDs.reduce(
-      (sum, category) => sum + (category.Price || 0),
-      0
-    );
-    const addPayment = new paymentMdl({
-      userID: updateUser._id,
-      TotalPrice: TotalFee,
-    });
-    await addPayment.save();
-    // Send response with user details
-    return res.send({ status: true, userDetails: userDetails, TotalFee });
+      // Wait for all category checks to complete
+      const AddCatPaymentResults = await Promise.all(AddCatPaymentProcess);
+      // Update the user with the token
+      const updateUser = await UserServices.updateUser(addUser._id, {
+        jwt_token: token,
+      });
+      console.log(updateUser._id);
+      // Get user details
+      const userDetails = await UserServices.getUserFrontendDetails(
+        updateUser._id
+      );
+      const TotalFee = userDetails.categoryIDs.reduce(
+        (sum, category) => sum + (category.Price || 0),
+        0
+      );
+      const addPayment = new paymentMdl({
+        userID: updateUser._id,
+        TotalPrice: TotalFee,
+      });
+      await addPayment.save();
+      // Send response with user details
+      return res.send({ status: true, userDetails: userDetails, TotalFee });
+    } else {
+      return res.send({ status: false, message: "Error during signup" });
+    }
   } catch (error) {
     console.log(error.message);
     res.status(500).json({ message: "Error during signup" });

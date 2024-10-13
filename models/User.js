@@ -7,6 +7,17 @@ const userSchema = new mongoose.Schema(
     LastName: { type: String, required: true },
     EmailAddress: { type: String, required: true, unique: true },
     Password: { type: String, required: true },
+    DniNieNumber: { type: String, required: true },
+    IsResident: { type: Boolean, required: true, default: false },
+    Education: { type: String, required: true },
+    ContactNumber: { type: String, required: true },
+    Address: { type: String, required: true },
+    City: { type: String, required: true },
+    Gender: {
+      type: String,
+      enum: ["Male", "Female", "Other"],
+      default: "Male",
+    },
     jwt_token: { type: String, required: true },
     categoryIDs: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Category", required: true },
@@ -21,7 +32,15 @@ const userSchema = new mongoose.Schema(
       ref: "Permission",
       required: true,
     },
-    Status: { type: String, enum: ["pending", "approved"], default: "pending" },
+    Status: {
+      type: String,
+      enum: ["pending", "approved", "expired"],
+      default: "pending",
+    },
+    ExpiryDate: {
+      type: Date,
+      default: null,
+    },
     LanguageConversionPermission: {
       type: String,
       enum: ["allow", "deny"],
@@ -31,6 +50,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["25", "50", "75", "100"],
       default: "100",
+    },
+    PayType: {
+      type: String,
+      enum: ["Manually", "Online"],
+      default: "Online",
     },
   },
   { timestamps: true }
