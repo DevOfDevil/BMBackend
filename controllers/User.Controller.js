@@ -160,6 +160,7 @@ const signup = async (req, res) => {
       user_id: addUser._id,
       is_activated: true,
     });
+    await AddDevic.save();
     // Generate JWT token
     var token = jwt.sign({ data: addUser._id }, config.jwt_secret, {
       expiresIn: config.jwt_expire,
