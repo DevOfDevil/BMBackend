@@ -1,0 +1,10 @@
+const express = require("express");
+const router = express.Router();
+require("./User.Route")(router);
+require("./Category.Route")(router);
+require("./Quiz.Route")(router);
+require("./Chapter.Route")(router);
+require("./Questions.Route")(router);
+require("./Onlineclass.Route")(router);
+require("./Schedule.Route")(router);
+module.exports = router;

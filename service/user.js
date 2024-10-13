@@ -1,0 +1,142 @@
+const User = require("../models/User");
+const RoleMdl = require("../models/Role");
+const PermissionMdl = require("../models/Permission");
+
+const getUserBy = async (payload) => {
+  try {
+    const post = await User.findOne(payload);
+    return post;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+};
+
+const addUser = async (payload) => {
+  try {
+    // Fetch Role and Permission IDs by their names
+    const [role, permission] = await Promise.all([
+      RoleMdl.findOne({ RoleName: "user" }),
+      PermissionMdl.findOne({ PermissionName: "all" }),
+    ]);
+
+    if (!role) throw new Error(`Role '${payload.RoleName}' not found.`);
+    if (!permission)
+      throw new Error(`Permission '${payload.PermissionName}' not found.`);
+
+    const post = new User({
+      Username: payload.Username,
+      EmailAddress: payload.EmailAddress,
+      Password: payload.Password,
+      categoryIDs: payload.categoryIDs,
+      RoleID: role._id,
+      PermissionID: permission._id,
+      jwt_token: payload.token,
+    });
+    await post.save();
+
+    return post;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+};
+
+const updateUser = async (userID, payload, files = null) => {
+  try {
+    await User.updateOne({ _id: userID }, { ...payload, updated: Date.now() });
+    return User.findOne({ _id: userID });
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+};
+/*
+const deleteUser = async (userId) => {
+	try {
+		const post = await User.findOne({ _id: userId });
+		post.deleted = true;
+		await post.save();
+		return post;
+		// res.status(204).send();
+	} catch (error) {
+		console.log(error);
+		return null;
+	}
+}
+*/
+
+const getUserFrontendDetails = async (userId) => {
+  try {
+    const user = await User.findOne({ _id: userId })
+      .populate("RoleID", "RoleName") // Populates RoleID with RoleName
+      .populate("PermissionID", "PermissionName") // Populates PermissionID with PermissionName
+      .populate("categoryIDs");
+
+    if (!user) {
+      console.log("User not found.");
+      return;
+    }
+
+    // Format the response to include RoleName and PermissionName
+    const userDetails = {
+      _id: user._id,
+      Username: user.Username,
+      EmailAddress: user.EmailAddress,
+      RoleName: user.RoleID?.RoleName, // RoleID is now populated with the document
+      PermissionName: user.PermissionID?.PermissionName, // PermissionID is now populated with the document
+      Status: user.Status,
+      jwt_token: user.jwt_token,
+      categoryIDs: user.categoryIDs.map((category) => ({
+        _id: category._id,
+        name: category.name,
+        description: category.description,
+        Price: category.Price,
+      })), // Map the categoryIDs to include required fields
+    };
+    return userDetails;
+    //console.log("User details:", userDetails);
+  } catch (error) {
+    console.error("Error fetching user:", error.message);
+  }
+};
+
+const getAllUserForBackend = async (Payload) => {
+  try {
+    console.log(Payload);
+    const Users = await User.findOne({ ...Payload })
+      .populate("RoleID", "RoleName") // Populates RoleID with RoleName
+      .populate("PermissionID", "PermissionName") // Populates PermissionID with PermissionName
+      .populate("categoryIDs");
+    /*
+    // Format the response to include RoleName and PermissionName
+    const userDetails = {
+      _id: user._id,
+      Username: user.Username,
+      EmailAddress: user.EmailAddress,
+      RoleName: user.RoleID?.RoleName, // RoleID is now populated with the document
+      PermissionName: user.PermissionID?.PermissionName, // PermissionID is now populated with the document
+      Status: user.Status,
+      jwt_token: user.jwt_token,
+      categoryIDs: user.categoryIDs.map((category) => ({
+        _id: category._id,
+        name: category.name,
+        description: category.description,
+        Price: category.Price,
+      })), // Map the categoryIDs to include required fields
+    };
+    */
+    console.log(Users);
+    return Users;
+  } catch (error) {
+    console.error("Error fetching user:", error.message);
+  }
+};
+
+module.exports = {
+  getUserBy,
+  addUser,
+  updateUser,
+  getUserFrontendDetails,
+  getAllUserForBackend,
+};
