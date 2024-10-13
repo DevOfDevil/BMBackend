@@ -5,7 +5,9 @@ const ChapterMdl = require("../../models/Chapter");
 const GetChapterByQuizID = async (req, res) => {
   try {
     const { QuizID } = req.params;
-    const Chapters = await ChapterMdl.find({ QuizID: QuizID });
+    const Chapters = await ChapterMdl.find({ QuizID: QuizID }).populate(
+      "QuizID"
+    );
     return res.send({ status: true, Chapters: Chapters });
   } catch (error) {
     console.error("Error getting chapters:", error.message);
@@ -23,7 +25,9 @@ const addChapter = async (req, res) => {
       isDeleted: isDeleted,
     });
     await Quiz.save();
-    const Chapters = await ChapterMdl.find({ QuizID: QuizID });
+    const Chapters = await ChapterMdl.find({ QuizID: QuizID }).populate(
+      "QuizID"
+    );
     return res.send({ status: true, Chapters: Chapters });
   } catch (error) {
     console.error("Error creating Chapter:", error.message);

@@ -34,7 +34,7 @@ const addQuiz = async (req, res) => {
       isDeleted: isDeleted,
     });
     await Quiz.save();
-    const Quizs = await QuizMdl.find({ Category: CatID });
+    const Quizs = await QuizMdl.find({ Category: CatID }).populate("Category");
     return res.send({ status: true, Quizs: Quizs });
   } catch (error) {
     console.error("Error creating user:", error.message);

@@ -12,7 +12,15 @@ const GetQuestionByChapterID = async (req, res) => {
         .send({ status: false, message: "Invalid ChapterID" });
     }
 
-    const Questions = await QuestionMdl.find({ Chapter: ChapterID });
+    const Questions = await QuestionMdl.find({ Chapter: ChapterID }).populate({
+      path: "Chapter",
+      populate: {
+        path: "QuizID",
+        populate: {
+          path: "Category", // Populating the Category inside the Quiz model
+        },
+      },
+    });
     // Fetch the options for each question and randomize the order
     const questionsWithOptions = await Promise.all(
       Questions.map(async (question) => {
@@ -82,7 +90,15 @@ const addQuestion = async (req, res) => {
     await Promise.all(optionPromises);
 
     // Fetch all questions related to the QuizID
-    const Questions = await QuestionMdl.find({ Chapter: ChapterID });
+    const Questions = await QuestionMdl.find({ Chapter: ChapterID }).populate({
+      path: "Chapter",
+      populate: {
+        path: "QuizID",
+        populate: {
+          path: "Category", // Populating the Category inside the Quiz model
+        },
+      },
+    });
 
     // Fetch the options for each question and randomize the order
     const questionsWithOptions = await Promise.all(
