@@ -20,7 +20,6 @@ app.use(
 const PORT = process.env.PORT || 5000;
 
 connectDB();
-
 const server = require("http").createServer(app);
 
 app.use(express.urlencoded({ extended: true }));
