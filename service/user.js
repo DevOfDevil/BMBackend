@@ -29,6 +29,8 @@ const addUser = async (payload) => {
       EmailAddress: payload.EmailAddress,
       Password: payload.Password,
       categoryIDs: payload.categoryIDs,
+      FirstName: payload.FirstName,
+      LastName: payload.LastName,
       RoleID: role._id,
       PermissionID: permission._id,
       jwt_token: payload.token,
@@ -82,6 +84,8 @@ const getUserFrontendDetails = async (userId) => {
     const userDetails = {
       _id: user._id,
       Username: user.Username,
+      FirstName: user.FirstName,
+      LastName: user.LastName,
       EmailAddress: user.EmailAddress,
       RoleName: user.RoleID?.RoleName, // RoleID is now populated with the document
       PermissionName: user.PermissionID?.PermissionName, // PermissionID is now populated with the document

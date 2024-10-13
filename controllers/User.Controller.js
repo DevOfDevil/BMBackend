@@ -2,6 +2,7 @@
 const mongoose = require("mongoose");
 const UserServices = require("../service/user");
 const RoleMdl = require("../models/Role");
+const DeviceMdl = require("../models/userDevice");
 const CategoryMdl = require("../models/Category");
 const paymentMdl = require("../models/paymentTransaction");
 
@@ -82,7 +83,16 @@ const signup = async (req, res) => {
 */
 const signup = async (req, res) => {
   try {
-    const { username, email, password, categoryIds } = req.body;
+    const {
+      username,
+      FirstName,
+      LastName,
+      email,
+      password,
+      categoryIds,
+      DeviceType,
+      DeviceMac,
+    } = req.body;
     const checkEmailExits = await UserServices.getUserBy({
       EmailAddress: email,
     });
@@ -135,12 +145,21 @@ const signup = async (req, res) => {
     // Add the user if all categories are valid
     let addUser = await UserServices.addUser({
       Username: username,
+      FirstName: FirstName,
+      LastName: LastName,
       EmailAddress: email,
       Password: password,
       categoryIDs: categoryIds, // Save the array of category IDs
       token: "pre-user",
     });
 
+    //add Device Data
+    const AddDevic = new DeviceMdl({
+      device_name: DeviceType,
+      device_mac: DeviceMac,
+      user_id: addUser._id,
+      is_activated: true,
+    });
     // Generate JWT token
     var token = jwt.sign({ data: addUser._id }, config.jwt_secret, {
       expiresIn: config.jwt_expire,
