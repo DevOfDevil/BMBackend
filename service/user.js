@@ -107,8 +107,7 @@ const getUserFrontendDetails = async (userId) => {
 
 const getAllUserForBackend = async (Payload) => {
   try {
-    console.log(Payload);
-    const Users = await User.findOne({ ...Payload })
+    const Users = await User.find({ ...Payload })
       .populate("RoleID", "RoleName") // Populates RoleID with RoleName
       .populate("PermissionID", "PermissionName") // Populates PermissionID with PermissionName
       .populate("categoryIDs");
