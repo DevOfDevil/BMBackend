@@ -1,4 +1,5 @@
-// controllers/userController.js
+const mongoose = require("mongoose");
+const { ObjectId } = mongoose.Types;
 const UserServices = require("../../service/user");
 const RoleMdl = require("../../models/Role");
 const PermissionMdl = require("../../models/Permission");
@@ -9,6 +10,9 @@ const paymentMdl = require("../../models/paymentTransaction");
 
 var jwt = require("jsonwebtoken");
 const config = require("../../config/Config");
+function isValidObjectId(id) {
+  return ObjectId.isValid(id) && String(new ObjectId(id)) === id;
+}
 
 const login = async (req, res) => {
   try {
@@ -154,7 +158,7 @@ const addUser = async (req, res) => {
         .status(400)
         .send({ status: false, message: "Permission Not Found" });
 
-    let addUser = await UserServices.addUser({
+    let addUser = await UserServices.addUserByAdmin({
       Username: username,
       FirstName: FirstName,
       LastName: LastName,
@@ -170,15 +174,58 @@ const addUser = async (req, res) => {
       Gender: Gender,
       token: "pre-user",
       PayType: "Manually",
+      ExpiryDate: ExpiryDate != null ? ExpiryDate : null,
+      LanguageConversionPermission: LanguageConversionPermission,
+      QuestionAllowed: QuestionAllowed,
+      RoleID: role._id,
+      PermissionID: permission._id,
     });
 
-    const user = await UserServices.getAllUserForBackend({
-      RoleID: role._id,
-    });
-    return res.send({
-      status: true,
-      Users: user,
-    });
+    if (addUser) {
+      //add Device Data
+      const AddDevic = new DeviceMdl({
+        device_name: DeviceType,
+        device_mac: DeviceMac,
+        user_id: addUser._id,
+        is_activated: true,
+      });
+      await AddDevic.save();
+      //Add Category seperatly
+      const AddCatPaymentProcess = categoryResults.map(async (category) => {
+        const addCatPayment = new CategoryPurchasedMdl({
+          userID: addUser._id,
+          CatID: category.category._id,
+          CatPrice: category.category.Price,
+          IsDeleted: false,
+        });
+        await addCatPayment.save();
+      });
+
+      // Wait for all category checks to complete
+      const AddCatPaymentResults = await Promise.all(AddCatPaymentProcess);
+      const TotalFee = categoryResults.reduce(
+        (sum, category) => sum + (category.Price || 0),
+        0
+      );
+      const addPayment = new paymentMdl({
+        userID: addUser._id,
+        TotalPrice: TotalFee,
+        isPaid: true,
+        PaidAmount: PaidAmount,
+        TransactionHash: "Added By Admin",
+      });
+      await addPayment.save();
+
+      const user = await UserServices.getAllUserForBackend({
+        RoleID: role._id,
+      });
+      return res.send({
+        status: true,
+        Users: user,
+      });
+    } else {
+      return res.send({ status: false, message: "Error Adding User" });
+    }
   } catch (error) {
     console.error("Error creating user:", error.message);
     return res.send({ status: false, message: "Something went wrong!" });

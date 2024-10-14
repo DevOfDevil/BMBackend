@@ -53,6 +53,39 @@ const addUser = async (payload) => {
   }
 };
 
+const addUserByAdmin = async (payload) => {
+  try {
+    const post = new User({
+      Username: payload.Username,
+      EmailAddress: payload.EmailAddress,
+      Password: payload.Password,
+      categoryIDs: payload.categoryIDs,
+      FirstName: payload.FirstName,
+      LastName: payload.LastName,
+      jwt_token: payload.token,
+      PayType: payload.PayType,
+      DniNieNumber: payload.DniNumber,
+      IsResident: payload.IsResident,
+      Education: payload.Education,
+      ContactNumber: payload.ContactNumber,
+      Address: payload.Address,
+      City: payload.City,
+      Gender: payload.Gender,
+      ExpiryDate: payload.ExpiryDate,
+      LanguageConversionPermission: payload.LanguageConversionPermission,
+      QuestionAllowed: payload.QuestionAllowed,
+      RoleID: payload.RoleID,
+      PermissionID: payload.PermissionID,
+    });
+
+    await post.save();
+
+    return post;
+  } catch (error) {
+    console.log(error);
+    return null;
+  }
+};
 const updateUser = async (userID, payload, files = null) => {
   try {
     await User.updateOne({ _id: userID }, { ...payload, updated: Date.now() });
@@ -159,4 +192,5 @@ module.exports = {
   updateUser,
   getUserFrontendDetails,
   getAllUserForBackend,
+  addUserByAdmin,
 };

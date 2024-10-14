@@ -36,8 +36,6 @@ module.exports = async function (req, res, next) {
     });
   } catch (error) {
     console.log("message", error.message);
-    return res
-      .status(401)
-      .json({ status: false, message: "token error" + error.message });
+    return res.status(401).json({ status: false, message: "token error" });
   }
 };
