@@ -19,10 +19,10 @@ module.exports = (router) => {
     QuestionController.GetQuestionByChapterID
   );
   router.get("/question/getAll", auth, QuestionController.GetAllQuestions);
-  router.get(
+  router.post(
     "/question/importQuestions",
     auth,
     upload.single("questionCsv"),
-    QuestionController.GetAllQuestions
+    QuestionController.importQuestions
   );
 };
