@@ -3,7 +3,15 @@ const QuestionController = require("../../controllers/Admin/Question.Controller"
 const multer = require("multer");
 const upload = multer({ dest: "./public/data/uploads/" });
 module.exports = (router) => {
-  router.post("/question/add", auth, QuestionController.addQuestion);
+  router.post(
+    "/question/add",
+    auth,
+    upload.fields([
+      { name: "QuestionImage", maxCount: 1 },
+      { name: "QuestionAudio", maxCount: 1 },
+    ]),
+    QuestionController.addQuestion
+  );
 
   router.get(
     "/question/getByChapterID/:ChapterID",
