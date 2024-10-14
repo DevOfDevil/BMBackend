@@ -45,12 +45,19 @@ const initializeAdmin = async () => {
     if (existingUser.length === 0) {
       await UserMdl.create({
         Username: "admin",
+        FirstName: "Admin",
+        LastName: "User",
         EmailAddress: config.AdminEmail,
         Password: config.AdminAccountPassword,
         Status: "approved",
         RoleID: role._id,
         PermissionID: permission._id,
         jwt_token: "initializeAdmin",
+        DniNieNumber: "null",
+        Education: "null",
+        ContactNumber: "null",
+        Address: "null",
+        City: "null",
       });
       console.log("Admin User Added successfully.");
     } else {

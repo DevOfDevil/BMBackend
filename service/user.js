@@ -98,6 +98,13 @@ const getUserFrontendDetails = async (userId) => {
       EmailAddress: user.EmailAddress,
       RoleName: user.RoleID?.RoleName, // RoleID is now populated with the document
       PermissionName: user.PermissionID?.PermissionName, // PermissionID is now populated with the document
+      DniNieNumber: user.DniNieNumber,
+      Education: user.Education,
+      IsResident: user.IsResident,
+      ContactNumber: user.ContactNumber,
+      Address: user.Address,
+      City: user.City,
+      Gender: user.Gender,
       Status: user.Status,
       jwt_token: user.jwt_token,
       categoryIDs: user.categoryIDs.map((category) => ({
@@ -107,6 +114,7 @@ const getUserFrontendDetails = async (userId) => {
         Price: category.Price,
       })), // Map the categoryIDs to include required fields
     };
+
     return userDetails;
     //console.log("User details:", userDetails);
   } catch (error) {
