@@ -20,7 +20,10 @@ module.exports = async function (req, res, next) {
           .status(401)
           .json({ status: false, message: "token error invalid" });
 
-      const user = await UserMdl.find({ _id: decode._id, RoleID: role._id });
+      const user = await UserMdl.findOne({
+        _id: decode.data,
+        RoleID: role._id,
+      });
       if (user?.jwt_token != token)
         return res.status(401).json({ status: false, message: "token error" });
 
