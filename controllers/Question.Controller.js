@@ -68,7 +68,7 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
             };
           })
         );
-        return res.send({ status: false, questionsWithOptions });
+        return res.send({ status: true, questionsWithOptions });
       } else {
         return res.send({ status: false, message: "Id is not valid" });
       }
