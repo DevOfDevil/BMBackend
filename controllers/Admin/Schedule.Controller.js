@@ -47,11 +47,12 @@ const addSchedule = async (req, res) => {
 */
 const addSchedule = async (req, res) => {
   try {
-    const { day, time } = req.body;
+    const { Title, day, time } = req.body;
 
     const Schedule = await ScheduleServices.addSchedule({
       Day: day,
       Time: time,
+      Title: Title,
     });
     if (Schedule) {
       const Schedule = await ScheduleServices.getAllSchedule();

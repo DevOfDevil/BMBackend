@@ -1,6 +1,10 @@
 const mongoose = require("mongoose");
 
 const ScheduleSchema = new mongoose.Schema({
+  Title: {
+    type: String,
+    require: true,
+  },
   Day: {
     type: String,
     enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
