@@ -15,6 +15,7 @@ const addSchedule = async (payload) => {
     const post = new Schedule({
       Day: payload.Day,
       Time: payload.Time,
+      Title: payload.Title,
     });
     await post.save();
 

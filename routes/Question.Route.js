@@ -8,4 +8,9 @@ module.exports = (router) => {
     auth,
     QuestionController.getQuizByQuizChapterForRevision
   );
+  router.get(
+    "/questions/practice/getQuizByChapter/:ChapterID",
+    auth,
+    QuestionController.getQuizByChapterForPractice
+  );
 };
