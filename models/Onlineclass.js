@@ -10,6 +10,10 @@ const onlineClassSchema = new mongoose.Schema(
       type: String,
       require: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

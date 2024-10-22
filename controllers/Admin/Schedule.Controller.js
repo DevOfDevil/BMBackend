@@ -65,7 +65,58 @@ const addSchedule = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+
+const getScheduleByID = async (req, res) => {
+  try {
+    const { ScheduleID } = req.params;
+    const Schedule = await ScheduleServices.getScheduleBy({ _id: ScheduleID });
+    if (Schedule) {
+      return res.send({ status: true, Schedule: Schedule });
+    } else {
+      return res.send({
+        status: false,
+        message: "No Schedule Found By this ID!",
+      });
+    }
+  } catch (error) {
+    console.error("Error getting Schedule:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+const deleteSchedule = async (req, res) => {
+  try {
+    const { ScheduleID } = req.params;
+
+    const deleteSchedule = await ScheduleServices.updateSchedule(ScheduleID, {
+      isDeleted: true,
+    });
+    const Schedule = await ScheduleServices.getAllSchedule();
+    return res.send({ status: true, Schedule: Schedule });
+  } catch (error) {
+    console.error("Error creating user:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+const updateSchedule = async (req, res) => {
+  try {
+    const { Title, day, time, ScheduleID } = req.body;
+
+    const Schedule = await ScheduleServices.updateSchedule(ScheduleID, {
+      Day: day,
+      Time: time,
+      Title: Title,
+    });
+    return res.send({ status: true, Schedule: Schedule });
+  } catch (error) {
+    console.error("Error creating user:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+
 module.exports = {
   listAll,
   addSchedule,
+  updateSchedule,
+  deleteSchedule,
+  getScheduleByID,
 };

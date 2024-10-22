@@ -19,6 +19,10 @@ const ScheduleSchema = new mongoose.Schema({
     require: true,
   },
   Time: { type: String, require: true },
+  isDeleted: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 const Schedule = mongoose.model("Schedule", ScheduleSchema);

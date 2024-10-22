@@ -21,6 +21,10 @@ const chapterSchema = new Schema(
       ref: "Quiz",
       required: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

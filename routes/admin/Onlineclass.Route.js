@@ -10,4 +10,21 @@ module.exports = (router) => {
     OnlineClassesController.addClass
   );
   router.get("/class/getAll", auth, OnlineClassesController.listAllClasses);
+  router.get(
+    "/class/getClassByID/:classID",
+    auth,
+    OnlineClassesController.getClassByID
+  );
+  router.get(
+    "/class/deleteClassByID/:classID",
+    auth,
+    OnlineClassesController.deleteClass
+  );
+
+  router.post(
+    "/class/update",
+    auth,
+    upload.single("ClassThumbnail"),
+    OnlineClassesController.updateClass
+  );
 };

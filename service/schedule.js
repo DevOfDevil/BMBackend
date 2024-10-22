@@ -2,7 +2,7 @@ const Schedule = require("../models/Schedule");
 
 const getScheduleBy = async (payload) => {
   try {
-    const post = await User.findOne(payload);
+    const post = await Schedule.findOne(payload);
     return post;
   } catch (error) {
     console.log(error);
@@ -29,21 +29,11 @@ const addSchedule = async (payload) => {
 
 const updateSchedule = async (userID, payload, files = null) => {
   try {
-    await User.updateOne({ _id: userID }, { ...payload, updated: Date.now() });
-    return User.findOne({ _id: userID });
-  } catch (error) {
-    console.log(error);
-    return null;
-  }
-};
-
-const deleteSchedule = async (userId) => {
-  try {
-    const post = await User.findOne({ _id: userId });
-    post.deleted = true;
-    await post.save();
-    return post;
-    // res.status(204).send();
+    await Schedule.updateOne(
+      { _id: userID },
+      { ...payload, updated: Date.now() }
+    );
+    return Schedule.findOne({ _id: userID });
   } catch (error) {
     console.log(error);
     return null;
@@ -52,7 +42,7 @@ const deleteSchedule = async (userId) => {
 
 const getAllSchedule = async () => {
   try {
-    const AllSchedule = await Schedule.find();
+    const AllSchedule = await Schedule.find({ isDeleted: false });
     return AllSchedule;
   } catch (error) {
     console.error("Error fetching user:", error.message);
@@ -62,7 +52,6 @@ const getAllSchedule = async () => {
 
 module.exports = {
   getScheduleBy,
-  deleteSchedule,
   addSchedule,
   updateSchedule,
   getAllSchedule,

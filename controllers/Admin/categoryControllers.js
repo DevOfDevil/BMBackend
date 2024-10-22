@@ -27,7 +27,7 @@ const addCategory = async (req, res) => {
     await mainCategory.save();
 
     // Fetch all categories, including parent references
-    const categories = await MainCategory.find();
+    const categories = await MainCategory.find({ isDeleted: false });
 
     // Filter out main categories (those without a parent category)
     const mainCategories = categories.filter(
@@ -181,7 +181,7 @@ const buildCategoryTree = (category, categories) => {
 const ListAll = async (req, res) => {
   try {
     // Fetch all categories, including parent references
-    const categories = await MainCategory.find();
+    const categories = await MainCategory.find({ isDeleted: false });
 
     // Filter out main categories (those without a parent category)
     const mainCategories = categories.filter(
