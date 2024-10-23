@@ -1,5 +1,6 @@
 // controllers/mainCategoryController.js
 const MainCategory = require("../../models/Category");
+const QuizMdl = require("../../models/Quiz");
 
 const addCategory = async (req, res) => {
   try {
@@ -206,52 +207,111 @@ const ListAll = async (req, res) => {
   }
 };
 
-/*
-const getMainCategoryById = async (req, res) => {
+const getCategoryById = async (req, res) => {
   try {
-    const mainCategory = await MainCategory.findById(req.params.id).populate(
-      "parentCategory"
+    const { catID } = req.params.catID;
+    const Category = await MainCategory.findById({ _id: catID });
+    if (!Category) {
+      return res.send({
+        status: false,
+        message: "category not found",
+      });
+    }
+    return res.send({
+      status: true,
+      Category: Category,
+    });
+  } catch (error) {
+    return res.send({
+      status: false,
+      message: "something went wrong!",
+    });
+  }
+};
+const deleteCategory = async (req, res) => {
+  try {
+    const { catID } = req.params.catID;
+    const findCategory = await MainCategory.find({ parentCategory: catID });
+    if (findCategory) {
+      return res.send({
+        status: false,
+        message: "Category has sub categories!",
+      });
+    }
+    const findQuiz = await QuizMdl.find({ Category: catID });
+    if (findQuiz) {
+      return res.send({
+        status: false,
+        message: "Category has quizzes in it.You cannot delete this",
+      });
+    }
+
+    const deleteCat = await OnlineclassMdl.findByIdAndUpdate(catID, {
+      isDeleted: true,
+      updated: Date.now(),
+    });
+
+    // Fetch all categories, including parent references
+    const categories = await MainCategory.find({ isDeleted: false });
+
+    // Filter out main categories (those without a parent category)
+    const mainCategories = categories.filter(
+      (category) => !category.parentCategory
     );
-    if (!mainCategory) {
-      return res.status(404).json({ message: "Main category not found" });
-    }
-    res.status(200).json(mainCategory);
+
+    // Build a tree structure by recursively adding subcategories
+    const categoryTree = mainCategories.map((category) =>
+      buildCategoryTree(category, categories)
+    );
+
+    return res.send({
+      status: true,
+      Categories: categoryTree,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Error fetching main category", error });
+    return res.send({
+      status: false,
+      message: "something went wrong!",
+    });
   }
 };
 
-const updateMainCategory = async (req, res) => {
+const updateCategory = async (req, res) => {
   try {
+    const { name, description, parentCategory, Price, catID } = req.body;
     const mainCategory = await MainCategory.findByIdAndUpdate(
-      req.params.id,
-      req.body,
+      catID,
+      {
+        name: name,
+        description: description,
+        Price: Price,
+        updated: Date.now(),
+      },
       { new: true }
-    ).populate("parentCategory");
-    if (!mainCategory) {
-      return res.status(404).json({ message: "Main category not found" });
-    }
-    res
-      .status(200)
-      .json({ message: "Main category updated successfully", mainCategory });
+    );
+
+    if (mainCategory) {
+      return res.send({
+        status: true,
+        Category: mainCategory,
+      });
+    } else
+      return res.send({
+        status: false,
+        message: "something went wrong!",
+      });
   } catch (error) {
-    res.status(500).json({ message: "Error updating main category", error });
+    return res.send({
+      status: false,
+      message: "something went wrong!",
+    });
   }
 };
 
-const deleteMainCategory = async (req, res) => {
-  try {
-    const mainCategory = await MainCategory.findByIdAndDelete(req.params.id);
-    if (!mainCategory) {
-      return res.status(404).json({ message: "Main category not found" });
-    }
-    res.status(200).json({ message: "Main category deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ message: "Error deleting main category", error });
-  }
-};
-*/
 module.exports = {
   addCategory,
   ListAll,
+  getCategoryById,
+  deleteCategory,
+  updateCategory,
 };

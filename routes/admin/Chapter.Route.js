@@ -10,4 +10,15 @@ module.exports = (router) => {
     ChapterController.GetChapterByQuizID
   );
   router.get("/chapter/getAll", auth, ChapterController.GetAllChapter);
+  router.get(
+    "/chapter/getChapterById/:ChapterID",
+    auth,
+    ChapterController.getChapterByID
+  );
+  router.get(
+    "/chapter/deleteChapterByID/:ChapterID",
+    auth,
+    ChapterController.deleteChapter
+  );
+  router.post("/chapter/update", auth, ChapterController.updateChapter);
 };

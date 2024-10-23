@@ -1,7 +1,7 @@
 // controllers/userController.js
 const QuizMdl = require("../../models/Quiz");
 const ChapterMdl = require("../../models/Chapter");
-
+const QuestionMdl = require("../../models/Questions");
 const GetChapterByQuizID = async (req, res) => {
   try {
     const { QuizID } = req.params;
@@ -48,8 +48,86 @@ const GetAllChapter = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+
+const getChapterByID = async (req, res) => {
+  try {
+    const { ChapterID } = req.params.ChapterID;
+    const Chapter = await ChapterMdl.find({ _id: ChapterID });
+    if (!Chapter) {
+      return res.send({
+        status: false,
+        message: "Chapter not found",
+      });
+    }
+    return res.send({
+      status: true,
+      Chapter: Chapter,
+    });
+  } catch (error) {
+    return res.send({
+      status: false,
+      message: "something went wrong!",
+    });
+  }
+};
+const deleteChapter = async (req, res) => {
+  try {
+    const { ChapterID } = req.params.ChapterID;
+    const findQuestion = await QuestionMdl.find({ Chapter: ChapterID });
+    if (findQuestion) {
+      return res.send({
+        status: false,
+        message: "Chapter assigned to Question already!",
+      });
+    }
+
+    const deleteChapter = await ChapterMdl.findByIdAndUpdate(ChapterID, {
+      isDeleted: true,
+      updated: Date.now(),
+    });
+
+    const Chapters = await ChapterMdl.find().populate({
+      path: "QuizID",
+      populate: {
+        path: "Category", // Populating the Category inside the Quiz model
+      },
+    });
+    return res.send({ status: true, Chapters: Chapters });
+  } catch (error) {
+    return res.send({
+      status: false,
+      message: "something went wrong!",
+    });
+  }
+};
+const updateChapter = async (req, res) => {
+  try {
+    const { QuizID, Title, Description, ChapterID } = req.body;
+
+    // Save the question
+    const updateChapter = await ChapterMdl.findByIdAndUpdate(
+      ChapterID,
+      {
+        QuizID: QuizID,
+        Title: Title,
+        Description: Description,
+        updated: Date.now(),
+      },
+      { new: true }
+    );
+    return res.send({ status: true, Chapter: updateChapter });
+  } catch (error) {
+    return res.send({
+      status: false,
+      message: "something went wrong!",
+    });
+  }
+};
 module.exports = {
   addChapter,
   GetChapterByQuizID,
   GetAllChapter,
+  getChapterByID,
+  deleteChapter,
+  updateChapter,
 };
