@@ -209,7 +209,7 @@ const ListAll = async (req, res) => {
 
 const getCategoryById = async (req, res) => {
   try {
-    const { catID } = req.params.catID;
+    const { catID } = req.params;
     const Category = await MainCategory.findById({ _id: catID });
     if (!Category) {
       return res.send({
@@ -224,15 +224,15 @@ const getCategoryById = async (req, res) => {
   } catch (error) {
     return res.send({
       status: false,
-      message: "something went wrong!",
+      message: "something went wrong!" + error.message,
     });
   }
 };
 const deleteCategory = async (req, res) => {
   try {
-    const { catID } = req.params.catID;
+    const catID = req.params.catID;
     const findCategory = await MainCategory.find({ parentCategory: catID });
-    if (findCategory) {
+    if (findCategory.length) {
       return res.send({
         status: false,
         message: "Category has sub categories!",
