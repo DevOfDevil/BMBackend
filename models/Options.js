@@ -16,6 +16,10 @@ const OptionSchema = new Schema(
       type: Boolean,
       required: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

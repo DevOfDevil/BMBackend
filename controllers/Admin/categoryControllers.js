@@ -224,14 +224,17 @@ const getCategoryById = async (req, res) => {
   } catch (error) {
     return res.send({
       status: false,
-      message: "something went wrong!" + error.message,
+      message: "something went wrong!",
     });
   }
 };
 const deleteCategory = async (req, res) => {
   try {
     const catID = req.params.catID;
-    const findCategory = await MainCategory.find({ parentCategory: catID });
+    const findCategory = await MainCategory.find({
+      parentCategory: catID,
+      isDeleted: false,
+    });
     if (findCategory.length) {
       return res.send({
         status: false,

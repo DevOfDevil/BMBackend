@@ -161,25 +161,7 @@ const getAllUserForBackend = async (Payload) => {
       .populate("RoleID", "RoleName") // Populates RoleID with RoleName
       .populate("PermissionID", "PermissionName") // Populates PermissionID with PermissionName
       .populate("categoryIDs");
-    /*
-    // Format the response to include RoleName and PermissionName
-    const userDetails = {
-      _id: user._id,
-      Username: user.Username,
-      EmailAddress: user.EmailAddress,
-      RoleName: user.RoleID?.RoleName, // RoleID is now populated with the document
-      PermissionName: user.PermissionID?.PermissionName, // PermissionID is now populated with the document
-      Status: user.Status,
-      jwt_token: user.jwt_token,
-      categoryIDs: user.categoryIDs.map((category) => ({
-        _id: category._id,
-        name: category.name,
-        description: category.description,
-        Price: category.Price,
-      })), // Map the categoryIDs to include required fields
-    };
-    */
-    console.log(Users);
+
     return Users;
   } catch (error) {
     console.error("Error fetching user:", error.message);

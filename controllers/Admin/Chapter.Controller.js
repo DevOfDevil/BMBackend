@@ -5,9 +5,10 @@ const QuestionMdl = require("../../models/Questions");
 const GetChapterByQuizID = async (req, res) => {
   try {
     const { QuizID } = req.params;
-    const Chapters = await ChapterMdl.find({ QuizID: QuizID }).populate(
-      "QuizID"
-    );
+    const Chapters = await ChapterMdl.find({
+      QuizID: QuizID,
+      isDeleted: false,
+    }).populate("QuizID");
     return res.send({ status: true, Chapters: Chapters });
   } catch (error) {
     console.error("Error getting chapters:", error.message);
@@ -25,9 +26,10 @@ const addChapter = async (req, res) => {
       isDeleted: isDeleted,
     });
     await Quiz.save();
-    const Chapters = await ChapterMdl.find({ QuizID: QuizID }).populate(
-      "QuizID"
-    );
+    const Chapters = await ChapterMdl.find({
+      QuizID: QuizID,
+      isDeleted: false,
+    }).populate("QuizID");
     return res.send({ status: true, Chapters: Chapters });
   } catch (error) {
     console.error("Error creating Chapter:", error.message);
@@ -36,7 +38,7 @@ const addChapter = async (req, res) => {
 };
 const GetAllChapter = async (req, res) => {
   try {
-    const Chapters = await ChapterMdl.find().populate({
+    const Chapters = await ChapterMdl.find({ isDeleted: false }).populate({
       path: "QuizID",
       populate: {
         path: "Category", // Populating the Category inside the Quiz model
@@ -51,8 +53,11 @@ const GetAllChapter = async (req, res) => {
 
 const getChapterByID = async (req, res) => {
   try {
-    const { ChapterID } = req.params.ChapterID;
-    const Chapter = await ChapterMdl.find({ _id: ChapterID });
+    const { ChapterID } = req.params;
+    const Chapter = await ChapterMdl.findOne({
+      _id: ChapterID,
+      isDeleted: false,
+    });
     if (!Chapter) {
       return res.send({
         status: false,
@@ -72,8 +77,8 @@ const getChapterByID = async (req, res) => {
 };
 const deleteChapter = async (req, res) => {
   try {
-    const { ChapterID } = req.params.ChapterID;
-    const findQuestion = await QuestionMdl.find({ Chapter: ChapterID });
+    const { ChapterID } = req.params;
+    const findQuestion = await QuestionMdl.findOne({ Chapter: ChapterID });
     if (findQuestion) {
       return res.send({
         status: false,
@@ -86,7 +91,7 @@ const deleteChapter = async (req, res) => {
       updated: Date.now(),
     });
 
-    const Chapters = await ChapterMdl.find().populate({
+    const Chapters = await ChapterMdl.find({ isDeleted: false }).populate({
       path: "QuizID",
       populate: {
         path: "Category", // Populating the Category inside the Quiz model

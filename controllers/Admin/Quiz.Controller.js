@@ -54,7 +54,7 @@ const ListAllQuiz = async (req, res) => {
 
 const getQuizById = async (req, res) => {
   try {
-    const { QuizID } = req.params.QuizID;
+    const QuizID = req.params.QuizID;
     const Quiz = await QuizMdl.find({ _id: QuizID });
     if (!Quiz) {
       return res.send({
@@ -75,21 +75,28 @@ const getQuizById = async (req, res) => {
 };
 const deleteQuiz = async (req, res) => {
   try {
-    const { QuizID } = req.params.QuizID;
-    const findChapter = await ChapterMdl.find({ QuizID: QuizID });
-    if (findChapter) {
+    const { QuizID } = req.params;
+    const findChapter = await ChapterMdl.find({
+      QuizID: QuizID,
+      isDeleted: false,
+    });
+    if (findChapter.length) {
       return res.send({
         status: false,
         message: "Quiz assigned to chapter already!",
       });
     }
 
-    const deleteQuiz = await QuizMdl.findByIdAndUpdate(QuizID, {
-      isDeleted: true,
-      updated: Date.now(),
-    });
+    const deleteQuiz = await QuizMdl.findByIdAndUpdate(
+      QuizID,
+      {
+        isDeleted: true,
+        updated: Date.now(),
+      },
+      { new: true }
+    );
 
-    const Quizs = await QuizMdl.find({ Category: CatID }).populate("Category");
+    const Quizs = await QuizMdl.find({ isDeleted: false }).populate("Category");
     return res.send({ status: true, Quizs: Quizs });
   } catch (error) {
     return res.send({

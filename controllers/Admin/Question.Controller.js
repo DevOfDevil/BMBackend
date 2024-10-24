@@ -29,7 +29,10 @@ const GetQuestionByChapterID = async (req, res) => {
     // Fetch the options for each question and randomize the order
     const questionsWithOptions = await Promise.all(
       Questions.map(async (question) => {
-        const options = await OptionMdl.find({ Question: question._id });
+        const options = await OptionMdl.find({
+          Question: question._id,
+          isDeleted: false,
+        });
 
         // Randomize the order of the options
         const shuffledOptions = options.sort(() => Math.random() - 0.5);
@@ -231,6 +234,7 @@ const addQuestion = async (req, res) => {
       Question: QuestionTitle,
       imageURL: imageURL,
       AudioUrl: AudioUrl,
+      isDeleted: false,
     });
     await AddQuestion.save();
 
@@ -240,6 +244,7 @@ const addQuestion = async (req, res) => {
         Question: AddQuestion._id, // Reference to the question ID
         Option: option.option,
         isCorrect: option.IsCorrect,
+        isDeleted: false,
       });
       return newOption.save();
     });
@@ -248,7 +253,10 @@ const addQuestion = async (req, res) => {
     await Promise.all(optionPromises);
 
     // Fetch all questions related to the QuizID
-    const Questions = await QuestionMdl.find({ Chapter: ChapterID }).populate({
+    const Questions = await QuestionMdl.find({
+      Chapter: ChapterID,
+      isDeleted: false,
+    }).populate({
       path: "Chapter",
       populate: {
         path: "QuizID",
@@ -261,7 +269,10 @@ const addQuestion = async (req, res) => {
     // Fetch the options for each question and randomize the order
     const questionsWithOptions = await Promise.all(
       Questions.map(async (question) => {
-        const options = await OptionMdl.find({ Question: question._id });
+        const options = await OptionMdl.find({
+          Question: question._id,
+          isDeleted: false,
+        });
 
         // Randomize the order of the options
         const shuffledOptions = options.sort(() => Math.random() - 0.5);
@@ -296,7 +307,10 @@ const GetAllQuestions = async (req, res) => {
     // Fetch the options for each question and randomize the order
     const questionsWithOptions = await Promise.all(
       Questions.map(async (question) => {
-        const options = await OptionMdl.find({ Question: question._id });
+        const options = await OptionMdl.find({
+          Question: question._id,
+          isDeleted: false,
+        });
 
         // Randomize the order of the options
         const shuffledOptions = options.sort(() => Math.random() - 0.5);
@@ -467,7 +481,7 @@ const importQuestions = async (req, res) => {
 
 const getQuestionByID = async (req, res) => {
   try {
-    const { QuestionID } = req.params.QuestionID;
+    const { QuestionID } = req.params;
     const Questions = await QuestionMdl.find({
       _id: QuestionID,
       isDeleted: false,
@@ -480,11 +494,14 @@ const getQuestionByID = async (req, res) => {
         },
       },
     });
-    if (Questions) {
+    if (Questions.length) {
       // Fetch the options for each question and randomize the order
       const questionsWithOptions = await Promise.all(
         Questions.map(async (question) => {
-          const options = await OptionMdl.find({ Question: question._id });
+          const options = await OptionMdl.find({
+            Question: question._id,
+            isDeleted: false,
+          });
 
           // Randomize the order of the options
           const shuffledOptions = options.sort(() => Math.random() - 0.5);
@@ -508,7 +525,7 @@ const getQuestionByID = async (req, res) => {
 };
 const deleteQuestion = async (req, res) => {
   try {
-    const { QuestionID } = req.params.QuestionID;
+    const { QuestionID } = req.params;
 
     const deleteQuestion = await QuestionMdl.findByIdAndUpdate(QuestionID, {
       isDeleted: true,
@@ -529,7 +546,10 @@ const deleteQuestion = async (req, res) => {
     // Fetch the options for each question and randomize the order
     const questionsWithOptions = await Promise.all(
       Questions.map(async (question) => {
-        const options = await OptionMdl.find({ Question: question._id });
+        const options = await OptionMdl.find({
+          Question: question._id,
+          isDeleted: false,
+        });
 
         // Randomize the order of the options
         const shuffledOptions = options.sort(() => Math.random() - 0.5);
@@ -550,7 +570,7 @@ const deleteQuestion = async (req, res) => {
 };
 const updateQuestion = async (req, res) => {
   try {
-    const { ChapterID, QuestionTitle } = req.body;
+    const { QuestionID, ChapterID, QuestionTitle } = req.body;
     const QuestionImage = req.files["QuestionImage"]
       ? req.files["QuestionImage"][0]
       : null;

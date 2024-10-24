@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const permissionSchema = new mongoose.Schema({
   PermissionName: {
     type: String,
-    enum: ["audio", "video", "all"],
+    enum: ["audio", "video", "image", "all"],
   },
 });
 
