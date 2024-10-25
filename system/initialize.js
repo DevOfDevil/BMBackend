@@ -22,6 +22,7 @@ const initializePermission = async () => {
       await PermissionMdl.create([
         { PermissionName: "audio" },
         { PermissionName: "video" },
+        { PermissionName: "image" },
         { PermissionName: "all" },
       ]);
       console.log("Permission initialized successfully.");
