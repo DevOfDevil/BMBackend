@@ -242,7 +242,7 @@ const deleteCategory = async (req, res) => {
       });
     }
     const findQuiz = await QuizMdl.find({ Category: catID });
-    if (findQuiz) {
+    if (findQuiz.length) {
       return res.send({
         status: false,
         message: "Category has quizzes in it.You cannot delete this",
