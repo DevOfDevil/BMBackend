@@ -255,8 +255,65 @@ const setClientPermisiion = async (req, res) => {
 
     const checkEmailExits = await UserServices.getUserBy({
       _id: clientID,
+      RoleID: role._id,
     });
-    if (checkEmailExits) {
+    if (!checkEmailExits) {
+      return res.send({ status: true, message: "User Not Exits" });
+    }
+
+    let updateUser = await UserServices.updateUser(clientID, {
+      LanguageConversionPermission: LanguageConversionPermission,
+      QuestionAllowed: QuestionAllowed,
+      PermissionID: permission._id,
+    });
+
+    if (updateUser) {
+      return res.send({
+        status: true,
+        User: updateUser,
+      });
+    } else {
+      return res.send({ status: false, message: "Error Updating Permission!" });
+    }
+  } catch (error) {
+    console.error("Error creating user:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+
+const updateClient = async (req, res) => {
+  try {
+    const {
+      clientID,
+      username,
+      FirstName,
+      LastName,
+      email,
+      password,
+      categoryIds,
+      DeviceType,
+      DeviceMac,
+      DniNumber,
+      IsResident,
+      Education,
+      ContactNumber,
+      Address,
+      City,
+      Gender,
+      ExpiryDate,
+      Status,
+    } = req.body;
+
+    const role = await RoleMdl.findOne({ RoleName: "user" });
+
+    if (!role)
+      return res.status(400).send({ status: false, message: "Role Not Found" });
+
+    const checkEmailExits = await UserServices.getUserBy({
+      _id: clientID,
+      RoleID: role._id,
+    });
+    if (!checkEmailExits) {
       return res.send({ status: true, message: "User Not Exits" });
     }
 
