@@ -249,7 +249,7 @@ const deleteCategory = async (req, res) => {
       });
     }
 
-    const deleteCat = await OnlineclassMdl.findByIdAndUpdate(catID, {
+    const deleteCat = await MainCategory.findByIdAndUpdate(catID, {
       isDeleted: true,
       updated: Date.now(),
     });
