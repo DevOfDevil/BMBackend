@@ -160,7 +160,8 @@ const getAllUserForBackend = async (Payload) => {
     const Users = await User.find({ ...Payload })
       .populate("RoleID", "RoleName") // Populates RoleID with RoleName
       .populate("PermissionID", "PermissionName") // Populates PermissionID with PermissionName
-      .populate("categoryIDs");
+      .populate("categoryIDs")
+      .sort({ createdAt: -1 });
 
     return Users;
   } catch (error) {
