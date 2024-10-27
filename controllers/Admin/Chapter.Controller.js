@@ -78,7 +78,10 @@ const getChapterByID = async (req, res) => {
 const deleteChapter = async (req, res) => {
   try {
     const { ChapterID } = req.params;
-    const findQuestion = await QuestionMdl.findOne({ Chapter: ChapterID });
+    const findQuestion = await QuestionMdl.findOne({
+      Chapter: ChapterID,
+      isDeleted: false,
+    });
     if (findQuestion) {
       return res.send({
         status: false,
