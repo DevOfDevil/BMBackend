@@ -55,7 +55,7 @@ const ListAllQuiz = async (req, res) => {
 const getQuizById = async (req, res) => {
   try {
     const QuizID = req.params.QuizID;
-    const Quiz = await QuizMdl.find({ _id: QuizID });
+    const Quiz = await QuizMdl.find({ _id: QuizID, isDeleted: false });
     if (!Quiz) {
       return res.send({
         status: false,
