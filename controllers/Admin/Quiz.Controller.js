@@ -123,7 +123,12 @@ const updateQuiz = async (req, res) => {
     // Save the question
     const updateQuiz = await QuizMdl.findByIdAndUpdate(
       QuizID,
-      { Title: Title, Description: Description, updated: Date.now() },
+      {
+        Title: Title,
+        Category: CatID,
+        Description: Description,
+        updated: Date.now(),
+      },
       { new: true }
     );
     return res.send({ status: true, Quiz: updateQuiz });

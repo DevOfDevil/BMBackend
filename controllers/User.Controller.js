@@ -271,6 +271,7 @@ const getMyQuizzes = async (req, res) => {
   }
 };
 
+/*
 const getMyChapters = async (req, res) => {
   try {
     // Find chapters where the related quiz belongs to the user's selected categories
@@ -279,16 +280,21 @@ const getMyChapters = async (req, res) => {
     })
       .populate({
         path: "QuizID", // Populate the quiz field
-        match: { Category: { $in: req.userDetails.categoryIDs } }, // Filter quizzes by the user's selected categories
+        match: {
+          Category: { $in: req.userDetails.categoryIDs },
+          isDeleted: false,
+        }, // Filter quizzes by the user's selected categories
         select: "_id Title Description category", // Select necessary quiz fields
         populate: {
           path: "Category", // Populate the category field within each quiz
-          match: { _id: { $in: req.userDetails.categoryIDs } },
+          match: {
+            _id: { $in: req.userDetails.categoryIDs },
+            isDeleted: false,
+          },
           select: "_id name description",
         },
       })
       .select("_id Title Description");
-
     // Filter out chapters that do not have populated quizzes (because they didn't match the category)
     const filteredChapters = myChapters.filter(
       (chapter) => chapter.QuizID !== null
@@ -300,7 +306,126 @@ const getMyChapters = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+*/
+/*
+const getMyChapters = async (req, res) => {
+  try {
+    // Find chapters where the related quiz belongs to the user's selected categories
+    const myChapters = await ChapterMdl.find({
+      isDeleted: false,
+    })
+      .populate({
+        path: "QuizID", // Populate the quiz field
+        match: {
+          Category: { $in: req.userDetails.categoryIDs },
+          isDeleted: false,
+        }, // Filter quizzes by the user's selected categories
+        select: "_id Title Description category", // Select necessary quiz fields
+        populate: {
+          path: "Category", // Populate the category field within each quiz
+          match: {
+            _id: { $in: req.userDetails.categoryIDs },
+            isDeleted: false,
+          },
+          select: "_id name description",
+        },
+      })
+      .select("_id Title Description");
 
+    // Filter out chapters that do not have populated quizzes (because they didn't match the category)
+    const filteredChapters = myChapters.filter(
+      (chapter) => chapter.QuizID !== null
+    );
+
+    // Determine the clickable percentage based on QuestionAllowed value
+    const percentage = req.userDetails.QuestionAllowed; // Can be 25, 50, 75, or 100
+    console.log("percentage:=", percentage);
+    const totalChapters = filteredChapters.length;
+    const clickableCount = Math.floor((percentage / 100) * totalChapters);
+    console.log("clickableCount:=", clickableCount);
+    // Assign clickable property to the first `clickableCount` chapters
+    // Convert chapters to plain JavaScript objects and add the `clickable` property
+    const resultChapters = filteredChapters.map((chapter, index) => {
+      // Convert to plain object to add properties
+      const chapterObj = chapter.toObject();
+      chapterObj.clickable = index < clickableCount;
+      return chapterObj;
+    });
+
+    return res.send({ status: true, myChapters: resultChapters });
+  } catch (error) {
+    console.error("Error fetching chapters:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+*/
+const getMyChapters = async (req, res) => {
+  try {
+    // Fetch chapters related to the user's selected categories
+    const myChapters = await ChapterMdl.find({
+      isDeleted: false,
+    })
+      .populate({
+        path: "QuizID",
+        match: {
+          Category: { $in: req.userDetails.categoryIDs },
+          isDeleted: false,
+        },
+        select: "_id Title Description category",
+        populate: {
+          path: "Category",
+          match: {
+            _id: { $in: req.userDetails.categoryIDs },
+            isDeleted: false,
+          },
+          select: "_id name description",
+        },
+      })
+      .select("_id Title Description");
+
+    // Filter chapters that have populated quizzes
+    const filteredChapters = myChapters.filter(
+      (chapter) => chapter.QuizID !== null
+    );
+
+    // Group chapters by QuizID
+    const chaptersByQuiz = filteredChapters.reduce((acc, chapter) => {
+      const quizId = chapter.QuizID._id.toString();
+      if (!acc[quizId]) {
+        acc[quizId] = [];
+      }
+      acc[quizId].push(chapter);
+      return acc;
+    }, {});
+
+    // Retrieve the allowed percentage for clickable chapters
+    const allowedPercentage = req.userDetails.QuestionAllowed; // 25 or 50, for example
+    const resultChapters = [];
+
+    // Set clickable property for each QuizID group based on the allowed percentage
+    for (const quizId in chaptersByQuiz) {
+      const chapters = chaptersByQuiz[quizId];
+      const totalChapters = chapters.length;
+      const clickableCount = Math.ceil(
+        (allowedPercentage / 100) * totalChapters
+      );
+      // Set `clickable: true` for the allowed percentage of chapters, others are `clickable: false`
+      const processedChapters = chapters.map((chapter, index) => {
+        const chapterObj = chapter.toObject();
+        chapterObj.clickable = index < clickableCount;
+        return chapterObj;
+      });
+
+      resultChapters.push(...processedChapters);
+    }
+
+    return res.send({ status: true, myChapters: resultChapters });
+  } catch (error) {
+    console.error("Error fetching chapters:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+/*
 const getChapterByQuizID = async (req, res) => {
   try {
     const { QuizID } = req.params;
@@ -311,24 +436,29 @@ const getChapterByQuizID = async (req, res) => {
     })
       .populate({
         path: "QuizID", // Populate the quiz field
-        match: { Category: { $in: req.userDetails.categoryIDs } }, // Filter quizzes by the user's selected categories
+        match: {
+          Category: { $in: req.userDetails.categoryIDs },
+          isDeleted: false,
+        }, // Filter quizzes by the user's selected categories
         select: "_id Title Description category", // Select necessary quiz fields
         populate: {
           path: "Category", // Populate the category field within each quiz
-          match: { _id: { $in: req.userDetails.categoryIDs } },
+          match: {
+            _id: { $in: req.userDetails.categoryIDs },
+            isDeleted: false,
+          },
           select: "_id name description",
         },
       })
       .select("_id Title Description")
       .exec();
-    /*
-    const filteredChapters = myChapters
-      .filter((chapter) => chapter.QuizID !== null)
-      .map((chapter) => {
-        const { QuizID, ...chapterWithoutQuizID } = chapter.toObject(); // Exclude QuizID
-        return chapterWithoutQuizID;
-      });
-      */
+
+    // const filteredChapters = myChapters
+    //   .filter((chapter) => chapter.QuizID !== null)
+    //   .map((chapter) => {
+    //     const { QuizID, ...chapterWithoutQuizID } = chapter.toObject(); // Exclude QuizID
+    //     return chapterWithoutQuizID;
+    //   });
     const filteredChapters = myChapters
       .filter((chapter) => chapter.QuizID !== null)
       .map((chapter) => {
@@ -340,6 +470,64 @@ const getChapterByQuizID = async (req, res) => {
       });
 
     return res.send({ status: true, myChapters: filteredChapters });
+  } catch (error) {
+    console.error("Error fetching chapters:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+*/
+
+const getChapterByQuizID = async (req, res) => {
+  try {
+    const { QuizID } = req.params;
+
+    // Fetch chapters for the specified QuizID
+    const myChapters = await ChapterMdl.find({
+      isDeleted: false,
+      QuizID: QuizID,
+    })
+      .populate({
+        path: "QuizID",
+        match: {
+          Category: { $in: req.userDetails.categoryIDs },
+          isDeleted: false,
+        },
+        select: "_id Title Description category",
+        populate: {
+          path: "Category",
+          match: {
+            _id: { $in: req.userDetails.categoryIDs },
+            isDeleted: false,
+          },
+          select: "_id name description",
+        },
+      })
+      .select("_id Title Description")
+      .exec();
+
+    // Filter chapters with populated QuizID
+    const filteredChapters = myChapters
+      .filter((chapter) => chapter.QuizID !== null)
+      .map((chapter) => {
+        const { QuizID, ...chapterWithoutQuizID } = chapter.toObject();
+        return {
+          ...chapterWithoutQuizID,
+          quizTitle: QuizID.Title,
+        };
+      });
+
+    // Determine the clickable percentage based on QuestionAllowed
+    const allowedPercentage = req.userDetails.QuestionAllowed;
+    const totalChapters = filteredChapters.length;
+    const clickableCount = Math.ceil((allowedPercentage / 100) * totalChapters);
+
+    // Set clickable: true for the allowed percentage of chapters
+    const resultChapters = filteredChapters.map((chapter, index) => ({
+      ...chapter,
+      clickable: index < clickableCount,
+    }));
+
+    return res.send({ status: true, myChapters: resultChapters });
   } catch (error) {
     console.error("Error fetching chapters:", error.message);
     return res.send({ status: false, message: "Something went wrong!" });
