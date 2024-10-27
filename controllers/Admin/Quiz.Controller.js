@@ -44,7 +44,7 @@ const addQuiz = async (req, res) => {
 };
 const ListAllQuiz = async (req, res) => {
   try {
-    const Quizs = await QuizMdl.find().populate("Category");
+    const Quizs = await QuizMdl.find({ isDeleted: false }).populate("Category");
     return res.send({ status: true, Quizs: Quizs });
   } catch (error) {
     console.error("Error getting Quiz:", error.message);
