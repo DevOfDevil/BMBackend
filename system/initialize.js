@@ -50,6 +50,7 @@ const initializeAdmin = async () => {
         LastName: "User",
         EmailAddress: config.AdminEmail,
         Password: config.AdminAccountPassword,
+        categoryIDs: null,
         Status: "approved",
         RoleID: role._id,
         PermissionID: permission._id,

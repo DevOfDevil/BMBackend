@@ -3,6 +3,11 @@ const fs = require("fs");
 const mongoose = require("mongoose"); // Make sure you have mongoose imported
 const OptionMdl = require("../../models/Options");
 const QuestionMdl = require("../../models/Questions");
+const { ObjectId } = mongoose.Types;
+
+function isValidObjectId(id) {
+  return ObjectId.isValid(id) && String(new ObjectId(id)) === id;
+}
 
 const GetQuestionByChapterID = async (req, res) => {
   try {
@@ -135,6 +140,9 @@ const addQuestion = async (req, res) => {
 const addQuestion = async (req, res) => {
   try {
     const { ChapterID, QuestionTitle } = req.body;
+    if (!isValidObjectId(ChapterID)) {
+      return res.send({ status: false, message: "Chapter ID is not Valid!" });
+    }
     const QuestionImage = req.files["QuestionImage"]
       ? req.files["QuestionImage"][0]
       : null;
@@ -570,7 +578,31 @@ const deleteQuestion = async (req, res) => {
 };
 const updateQuestion = async (req, res) => {
   try {
-    const { QuestionID, ChapterID, QuestionTitle } = req.body;
+    const {
+      QuestionID,
+      ChapterID,
+      QuestionTitle,
+      isImageDeleted,
+      isAudioDeleted,
+    } = req.body;
+    if (!isValidObjectId(ChapterID)) {
+      return res.send({ status: false, message: "Chapter ID is not Valid!" });
+    }
+    if (!isValidObjectId(QuestionID)) {
+      return res.send({ status: false, message: "Question ID is not Valid!" });
+    }
+
+    const chkQuestions = await QuestionMdl.findOne({
+      _id: QuestionID,
+      isDeleted: false,
+    });
+    if (!chkQuestions) {
+      return res.send({
+        status: false,
+        message: "Question Not Exits!",
+      });
+    }
+
     const QuestionImage = req.files["QuestionImage"]
       ? req.files["QuestionImage"][0]
       : null;
@@ -585,9 +617,14 @@ const updateQuestion = async (req, res) => {
       });
     }
 
-    let imageURL = "";
-    let AudioUrl = "";
-
+    let imageURL = chkQuestions.imageURL;
+    let AudioUrl = chkQuestions.AudioUrl;
+    if (isImageDeleted == true) {
+      imageURL = "";
+    }
+    if (isAudioDeleted == true) {
+      AudioUrl = "";
+    }
     // Handle image as Base64
     if (QuestionImage) {
       const validMimeTypes = ["image/jpeg", "image/png"];
@@ -664,19 +701,28 @@ const updateQuestion = async (req, res) => {
       AudioUrl = `/public/data/uploads/${uniqueAudioFileName}`;
     }
 
-    // Save the question
-    const AddQuestion = new QuestionMdl({
-      Chapter: ChapterID,
-      Question: QuestionTitle,
-      imageURL: imageURL,
-      AudioUrl: AudioUrl,
-    });
-    await AddQuestion.save();
+    const updateQuestion = await QuestionMdl.findOneAndUpdate(
+      { _id: QuestionID, Chapter: ChapterID },
+      {
+        Chapter: ChapterID,
+        Question: QuestionTitle,
+        imageURL: imageURL,
+        AudioUrl: AudioUrl,
+        updated: Date.now(),
+      }
+    );
+
+    const updateOptions = await OptionMdl.findAllAndUpdate(
+      { Question: QuestionID },
+      {
+        isDeleted: true,
+      }
+    );
 
     // Save the options related to this question
     const optionPromises = QuestionOption.map((option) => {
       const newOption = new OptionMdl({
-        Question: AddQuestion._id, // Reference to the question ID
+        Question: QuestionID, // Reference to the question ID
         Option: option.option,
         isCorrect: option.IsCorrect,
       });
@@ -686,8 +732,10 @@ const updateQuestion = async (req, res) => {
     // Wait for all options to be saved
     await Promise.all(optionPromises);
 
-    // Fetch all questions related to the QuizID
-    const Questions = await QuestionMdl.find({ Chapter: ChapterID }).populate({
+    const Questions = await QuestionMdl.find({
+      _id: QuestionID,
+      isDeleted: false,
+    }).populate({
       path: "Chapter",
       populate: {
         path: "QuizID",
@@ -696,23 +744,26 @@ const updateQuestion = async (req, res) => {
         },
       },
     });
+    if (Questions.length) {
+      // Fetch the options for each question and randomize the order
+      const questionsWithOptions = await Promise.all(
+        Questions.map(async (question) => {
+          const options = await OptionMdl.find({
+            Question: question._id,
+            isDeleted: false,
+          });
 
-    // Fetch the options for each question and randomize the order
-    const questionsWithOptions = await Promise.all(
-      Questions.map(async (question) => {
-        const options = await OptionMdl.find({ Question: question._id });
+          // Randomize the order of the options
+          const shuffledOptions = options.sort(() => Math.random() - 0.5);
 
-        // Randomize the order of the options
-        const shuffledOptions = options.sort(() => Math.random() - 0.5);
-
-        return {
-          ...question._doc, // Spread the question data
-          options: shuffledOptions, // Attach the randomized options
-        };
-      })
-    );
-
-    return res.send({ status: true, Questions: questionsWithOptions });
+          return {
+            ...question._doc, // Spread the question data
+            options: shuffledOptions, // Attach the randomized options
+          };
+        })
+      );
+      return res.send({ status: true, Question: questionsWithOptions });
+    }
   } catch (error) {
     console.error("Error creating question:", error.message);
     return res.send({ status: false, message: "Something went wrong!" });
