@@ -5,8 +5,8 @@ const RoleMdl = require("../models/Role");
 const DeviceMdl = require("../models/userDevice");
 const CategoryMdl = require("../models/Category");
 const CategoryPurchasedMdl = require("../models/CategoryPurchased");
-const paymentMdl = require("../models/paymentTransaction");
-const QuizMdl = require("../models/Quiz");
+const ReportDetailsMdl = require("../models/ReportDetails");
+const ReportingMdl = require("../models/Reporting");
 const ChapterMdl = require("../models/Chapter");
 const QuestionsMdl = require("../models/Questions");
 const OptionMdl = require("../models/Options");
@@ -108,7 +108,7 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
           },
         });
 
-        const filteredQuestions = Questions.filter(
+        const filteredQuestions = await Questions.filter(
           (chapter) => chapter.Chapter.QuizID !== null
         ).map((chapter) => {
           const All = chapter.toObject(); // Get QuizID object
@@ -121,9 +121,31 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
             chapterID: All.Chapter._id,
             QuizTitle: All.Chapter.QuizID.Title,
             QuizID: All.Chapter.QuizID._id,
+            CatTitle: All.Chapter.QuizID.Category.name,
+            CatID: All.Chapter.QuizID.Category._id,
           };
         });
+
         if (filteredQuestions.length > 0) {
+          //Add chapter question to reporting
+          // Get the first question's CategoryID, QuizID, and ChapterID
+          const {
+            CatID: CategoryID,
+            QuizID,
+            chapterID: ChapterID,
+          } = filteredQuestions[0];
+
+          // Add chapter question to reporting
+          const addToReportData = new ReportingMdl({
+            UserID: req.userDetails._id,
+            CategoryID,
+            QuizID,
+            ChapterID,
+            TestType: "revision",
+          });
+          const addToReport = await addToReportData.save();
+          console.log("addToReport._id:=", addToReport._id);
+
           // Fetch the options for each question and randomize the order
           const questionsWithOptions = await Promise.all(
             filteredQuestions.map(async (question) => {
@@ -131,14 +153,35 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
 
               // Randomize the order of the options
               const shuffledOptions = options.sort(() => Math.random() - 0.5);
+              // Extract only IDs for GivenOptions
+              const givenOptionsIds = shuffledOptions.map(
+                (option) => option._id
+              );
 
+              // Find the correct option in shuffledOptions
+              const correctOption = shuffledOptions.find(
+                (option) => option.isCorrect === true
+              );
+
+              const QuestionAndOptionData = new ReportDetailsMdl({
+                ReportingID: addToReport._id,
+                QuestionID: question._id,
+                GivenOptions: givenOptionsIds,
+                SelectedOption: correctOption ? correctOption._id : null,
+                CorrectOption: correctOption ? correctOption._id : null,
+              });
+              const addToReportDetails = await QuestionAndOptionData.save();
               return {
                 ...question, // Spread the question data
                 options: shuffledOptions, // Attach the randomized options
               };
             })
           );
-          return res.send({ status: true, questionsWithOptions });
+          return res.send({
+            status: true,
+            RevisionID: addToReport._id,
+            questionsWithOptions,
+          });
         } else {
           return res.send({
             status: false,
@@ -156,6 +199,57 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
         status: false,
         message: "Id is not valid",
       });
+  } catch (error) {
+    console.error("Error getting Questions:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+const setRevisionComplete = async (req, res) => {
+  try {
+    const { RevisionID } = req.params;
+    if (isValidObjectId(RevisionID)) {
+      const checkIsStarted = await ReportingMdl.findOne({
+        UserID: req.userDetails._id,
+        _id: RevisionID,
+      });
+      if (checkIsStarted) {
+        if (checkIsStarted.EndDate) {
+          return res.send({
+            status: false,
+            message: "Revision already completed",
+          });
+        } else {
+          const EndDate = new Date();
+          checkIsStarted.EndDate = EndDate;
+          checkIsStarted.status = "complete";
+
+          // Calculate time difference in milliseconds
+          const timeDiffMs = EndDate - checkIsStarted.StartDate;
+
+          // Convert milliseconds to hours, minutes, and seconds
+          const hours = Math.floor(timeDiffMs / (1000 * 60 * 60));
+          const minutes = Math.floor(
+            (timeDiffMs % (1000 * 60 * 60)) / (1000 * 60)
+          );
+          const seconds = Math.floor((timeDiffMs % (1000 * 60)) / 1000);
+
+          // Build completeTime string based on non-zero values
+          // Format each unit with leading zeros if necessary
+          const formattedHours = String(hours).padStart(2, "0");
+          const formattedMinutes = String(minutes).padStart(2, "0");
+          const formattedSeconds = String(seconds).padStart(2, "0");
+
+          // Construct completeTime in "hh:mm:ss" format
+          checkIsStarted.completeTime = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+          await checkIsStarted.save();
+          return res.send({ status: true, message: "Revision completed!" });
+        }
+      } else {
+        return res.send({ status: false, message: "In-valid Revision!" });
+      }
+    } else {
+      return res.send({ status: false, message: "ID is not valid!" });
+    }
   } catch (error) {
     console.error("Error getting Questions:", error.message);
     return res.send({ status: false, message: "Something went wrong!" });
@@ -249,4 +343,5 @@ const getQuizByChapterForPractice = async (req, res) => {
 module.exports = {
   getQuizByQuizChapterForRevision,
   getQuizByChapterForPractice,
+  setRevisionComplete,
 };

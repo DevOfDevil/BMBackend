@@ -9,6 +9,11 @@ module.exports = (router) => {
     QuestionController.getQuizByQuizChapterForRevision
   );
   router.get(
+    "/questions/revision/complete/:RevisionID",
+    auth,
+    QuestionController.setRevisionComplete
+  );
+  router.get(
     "/questions/practice/getQuizByChapter/:ChapterID",
     auth,
     QuestionController.getQuizByChapterForPractice
