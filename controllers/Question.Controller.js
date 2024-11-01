@@ -13,6 +13,7 @@ const OptionMdl = require("../models/Options");
 
 var jwt = require("jsonwebtoken");
 const config = require("../config/Config");
+const { count } = require("../models/User");
 const { ObjectId } = mongoose.Types;
 
 function isValidObjectId(id) {
@@ -169,7 +170,7 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
                 ReportingID: addToReport._id,
                 QuestionID: question._id,
                 GivenOptions: givenOptionsIds,
-                SelectedOption: correctOption ? correctOption._id : null,
+                //SelectedOption: correctOption ? correctOption._id : null,
                 CorrectOption: correctOption ? correctOption._id : null,
               });
               const addToReportDetails = await QuestionAndOptionData.save();
@@ -182,7 +183,12 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
           return res.send({
             status: true,
             RevisionID: addToReport._id,
-            questionsWithOptions,
+            questionsWithOptions:
+              questionsWithOptions.length > 1
+                ? questionsWithOptions[0]
+                : questionsWithOptions,
+            TotalQuestion: questionsWithOptions.length,
+            CurrentIndex: 1,
           });
         } else {
           return res.send({
@@ -443,8 +449,195 @@ const getQuizByChapterForPractice = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+
+const getQuizByChapterForTest = async (req, res) => {
+  try {
+    const { ChapterID } = req.params;
+    if (isValidObjectId(ChapterID)) {
+      const myChapters = await ChapterMdl.find({
+        isDeleted: false,
+      })
+        .populate({
+          path: "QuizID",
+          match: {
+            Category: { $in: req.userDetails.categoryIDs },
+            isDeleted: false,
+          },
+          select: "_id Title Description category",
+          populate: {
+            path: "Category",
+            match: {
+              _id: { $in: req.userDetails.categoryIDs },
+              isDeleted: false,
+            },
+            select: "_id name description",
+          },
+        })
+        .select("_id Title Description");
+
+      // Filter chapters that have populated quizzes
+      const filteredChapters = myChapters.filter(
+        (chapter) => chapter.QuizID !== null
+      );
+
+      // Group chapters by QuizID
+      const chaptersByQuiz = filteredChapters.reduce((acc, chapter) => {
+        const quizId = chapter.QuizID._id.toString();
+        if (!acc[quizId]) {
+          acc[quizId] = [];
+        }
+        acc[quizId].push(chapter);
+        return acc;
+      }, {});
+      // Retrieve the allowed percentage for clickable chapters
+      const allowedPercentage = req.userDetails.QuestionAllowed; // 25 or 50, for example
+      const resultChapters = [];
+
+      // Set clickable property for each QuizID group based on the allowed percentage
+      for (const quizId in chaptersByQuiz) {
+        const chapters = chaptersByQuiz[quizId];
+        const totalChapters = chapters.length;
+        const clickableCount = Math.ceil(
+          (allowedPercentage / 100) * totalChapters
+        );
+        // Set `clickable: true` for the allowed percentage of chapters, others are `clickable: false`
+        const processedChapters = chapters.map((chapter, index) => {
+          const chapterObj = chapter.toObject();
+          chapterObj.clickable = index < clickableCount;
+          return chapterObj;
+        });
+
+        resultChapters.push(...processedChapters);
+      }
+
+      const checkCategoryAllowed = resultChapters.some((chapter) => {
+        return (
+          chapter.clickable === true && chapter._id.toString() === ChapterID
+        );
+      });
+
+      if (checkCategoryAllowed) {
+        const Questions = await QuestionsMdl.find({
+          Chapter: ChapterID,
+          isDeleted: false,
+        }).populate({
+          path: "Chapter",
+          populate: {
+            path: "QuizID",
+            match: {
+              Category: { $in: req.userDetails.categoryIDs },
+              isDeleted: false,
+            }, // Filter quizzes by the user's selected categories
+            populate: {
+              path: "Category",
+              match: {
+                _id: { $in: req.userDetails.categoryIDs },
+                isDeleted: false,
+              },
+              select: "_id name description",
+            },
+          },
+        });
+
+        const filteredQuestions = await Questions.filter(
+          (chapter) => chapter.Chapter.QuizID !== null
+        ).map((chapter) => {
+          const All = chapter.toObject(); // Get QuizID object
+          return {
+            Question: All.Question,
+            imageURL: All.imageURL,
+            AudioUrl: All.AudioUrl,
+            _id: All._id,
+            chapterTitle: All.Chapter.Title,
+            chapterID: All.Chapter._id,
+            QuizTitle: All.Chapter.QuizID.Title,
+            QuizID: All.Chapter.QuizID._id,
+            CatTitle: All.Chapter.QuizID.Category.name,
+            CatID: All.Chapter.QuizID.Category._id,
+          };
+        });
+
+        if (filteredQuestions.length > 0) {
+          //Add chapter question to reporting
+          // Get the first question's CategoryID, QuizID, and ChapterID
+          const {
+            CatID: CategoryID,
+            QuizID,
+            chapterID: ChapterID,
+          } = filteredQuestions[0];
+
+          // Add chapter question to reporting
+          const addToReportData = new ReportingMdl({
+            UserID: req.userDetails._id,
+            CategoryID,
+            QuizID,
+            ChapterID,
+            TestType: "test",
+          });
+          const addToReport = await addToReportData.save();
+
+          // Fetch the options for each question and randomize the order
+          const questionsWithOptions = await Promise.all(
+            filteredQuestions.map(async (question) => {
+              const options = await OptionMdl.find({
+                Question: question._id,
+              }).select("_id Question Option isCorrect");
+
+              // Randomize the order of the options
+              const shuffledOptions = options.sort(() => Math.random() - 0.5);
+              // Extract only IDs for GivenOptions
+              const givenOptionsIds = shuffledOptions.map(
+                (option) => option._id
+              );
+
+              // Find the correct option in shuffledOptions
+              const correctOption = shuffledOptions.find(
+                (option) => option.isCorrect === true
+              );
+
+              const QuestionAndOptionData = new ReportDetailsMdl({
+                ReportingID: addToReport._id,
+                QuestionID: question._id,
+                GivenOptions: givenOptionsIds,
+                CorrectOption: correctOption ? correctOption._id : null,
+              });
+              const addToReportDetails = await QuestionAndOptionData.save();
+              return {
+                ...question, // Spread the question data
+                options: shuffledOptions, // Attach the randomized options
+              };
+            })
+          );
+          return res.send({
+            status: true,
+            RevisionID: addToReport._id,
+            questionsWithOptions,
+          });
+        } else {
+          return res.send({
+            status: false,
+            message: "Questions Not Added To Selected ID!",
+          });
+        }
+      } else {
+        return res.send({
+          status: false,
+          message: "This Chapter Not Allowed To You!",
+        });
+      }
+    } else
+      return res.send({
+        status: false,
+        message: "Id is not valid",
+      });
+  } catch (error) {
+    console.error("Error getting Questions:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
 module.exports = {
   getQuizByQuizChapterForRevision,
   getQuizByChapterForPractice,
   setRevisionComplete,
+  getQuizByChapterForTest,
 };
