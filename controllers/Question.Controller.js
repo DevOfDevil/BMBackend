@@ -189,6 +189,7 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
                 : questionsWithOptions,
             TotalQuestion: questionsWithOptions.length,
             CurrentIndex: 1,
+            isFinished:false
           });
         } else {
           return res.send({
@@ -285,6 +286,42 @@ const getRevisionNextQuestion = async (req, res) => {
       if (checkReporting) {
         if (checkReporting.status == "in-process") {
           //
+          if (SelectedOptionID) {
+            await ReportDetailsMdl.updateOne(
+              { ReportingID: RevisionID, QuestionID },
+              { $set: { SelectedOption: SelectedOptionID } }
+            );
+          }
+                // Get the next question based on the CurrentIndex
+                const nextQuestion = await ReportDetailsMdl.findOne({
+                  ReportingID: RevisionID,
+                  SelectedOption: { $exists: false },
+                }).populate("QuestionID GivenOptions CorrectOption");
+
+var questionsWithOptions = {
+  Question: nextQuestion.QuestionID.Question,
+  imageURL: nextQuestion.QuestionID.imageURL,
+  AudioUrl: nextQuestion.QuestionID.AudioUrl,
+  _id:nextQuestion.QuestionID._id,
+  chapterID: checkReporting.ChapterID,
+  QuizID: checkReporting.QuizID,
+  CatID: checkReporting.CategoryID,
+  options:nextQuestion.GivenOptions.map(option => ({
+    _id: option._id,
+    Question: option.Question,
+    Option: option.Option,
+    isCorrect: option.isCorrect,
+  })),
+}
+
+        return res.send({
+          status: true,
+          RevisionID,
+          questionsWithOptions,
+          TotalQuestion,
+          CurrentIndex:CurrentIndex+1,
+          isFinished:TotalQuestion>CurrentIndex?false:true,
+        });
         } else {
           return res.send({
             status: false,
