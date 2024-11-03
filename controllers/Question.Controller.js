@@ -264,6 +264,50 @@ const setRevisionComplete = async (req, res) => {
   }
 };
 
+const getRevisionNextQuestion = async (req, res) => {
+  try {
+    const {
+      RevisionID,
+      CurrentIndex,
+      TotalQuestion,
+      QuestionID,
+      SelectedOptionID,
+    } = req.body;
+    if (
+      isValidObjectId(RevisionID) &&
+      isValidObjectId(QuestionID) &&
+      isValidObjectId(SelectedOptionID)
+    ) {
+      const checkReporting = await ReportingMdl.findOne({
+        _id: RevisionID,
+        UserID: req.userDetails._id,
+      });
+      if (checkReporting) {
+        if (checkReporting.status == "in-process") {
+          //
+        } else {
+          return res.send({
+            status: false,
+            message: "This Revision Is Completed!",
+          });
+        }
+      } else {
+        return res.send({
+          status: false,
+          message: "Revision Not Found!",
+        });
+      }
+    } else
+      return res.send({
+        status: false,
+        message: "ID(s) are not valid",
+      });
+  } catch (error) {
+    console.error("Error getting Questions:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+
 const getQuizByChapterForPractice = async (req, res) => {
   try {
     const { ChapterID } = req.params;
@@ -640,4 +684,5 @@ module.exports = {
   getQuizByChapterForPractice,
   setRevisionComplete,
   getQuizByChapterForTest,
+  getRevisionNextQuestion,
 };
