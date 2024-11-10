@@ -14,6 +14,12 @@ module.exports = (router) => {
     QuestionController.setRevisionComplete
   );
   router.get(
+    "/questions/practice/complete/:RevisionID",
+    auth,
+    QuestionController.setPracticeComplete
+  );
+
+  router.get(
     "/questions/practice/getQuizByChapter/:ChapterID",
     auth,
     QuestionController.getQuizByChapterForPractice
@@ -22,6 +28,21 @@ module.exports = (router) => {
     "/questions/revision/getNextQuestion",
     auth,
     QuestionController.getRevisionNextQuestion
+  );
+  router.post(
+    "/questions/practice/getNextQuestion",
+    auth,
+    QuestionController.getPracticeNextQuestion
+  );
+  router.get(
+    "/questions/test/getQuizByChapter/:ChapterID",
+    auth,
+    QuestionController.getQuizByChapterForTest
+  );
+  router.post(
+    "/questions/test/getNextQuestion",
+    auth,
+    QuestionController.getTestNextQuestion
   );
   /*
   router.post(

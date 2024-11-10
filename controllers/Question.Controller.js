@@ -145,7 +145,6 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
             TestType: "revision",
           });
           const addToReport = await addToReportData.save();
-          console.log("addToReport._id:=", addToReport._id);
 
           // Fetch the options for each question and randomize the order
           const questionsWithOptions = await Promise.all(
@@ -183,13 +182,10 @@ const getQuizByQuizChapterForRevision = async (req, res) => {
           return res.send({
             status: true,
             RevisionID: addToReport._id,
-            questionsWithOptions:
-              questionsWithOptions.length > 1
-                ? questionsWithOptions[0]
-                : questionsWithOptions,
+            questionsWithOptions: questionsWithOptions,
             TotalQuestion: questionsWithOptions.length,
             CurrentIndex: 1,
-            isFinished:false
+            isFinished: false,
           });
         } else {
           return res.send({
@@ -220,6 +216,7 @@ const setRevisionComplete = async (req, res) => {
       const checkIsStarted = await ReportingMdl.findOne({
         UserID: req.userDetails._id,
         _id: RevisionID,
+        TestType: "revision",
       });
       if (checkIsStarted) {
         if (checkIsStarted.EndDate) {
@@ -292,36 +289,36 @@ const getRevisionNextQuestion = async (req, res) => {
               { $set: { SelectedOption: SelectedOptionID } }
             );
           }
-                // Get the next question based on the CurrentIndex
-                const nextQuestion = await ReportDetailsMdl.findOne({
-                  ReportingID: RevisionID,
-                  SelectedOption: { $exists: false },
-                }).populate("QuestionID GivenOptions CorrectOption");
+          // Get the next question based on the CurrentIndex
+          const nextQuestion = await ReportDetailsMdl.findOne({
+            ReportingID: RevisionID,
+            SelectedOption: { $exists: false },
+          }).populate("QuestionID GivenOptions CorrectOption");
 
-var questionsWithOptions = {
-  Question: nextQuestion.QuestionID.Question,
-  imageURL: nextQuestion.QuestionID.imageURL,
-  AudioUrl: nextQuestion.QuestionID.AudioUrl,
-  _id:nextQuestion.QuestionID._id,
-  chapterID: checkReporting.ChapterID,
-  QuizID: checkReporting.QuizID,
-  CatID: checkReporting.CategoryID,
-  options:nextQuestion.GivenOptions.map(option => ({
-    _id: option._id,
-    Question: option.Question,
-    Option: option.Option,
-    isCorrect: option.isCorrect,
-  })),
-}
+          var questionsWithOptions = {
+            Question: nextQuestion.QuestionID.Question,
+            imageURL: nextQuestion.QuestionID.imageURL,
+            AudioUrl: nextQuestion.QuestionID.AudioUrl,
+            _id: nextQuestion.QuestionID._id,
+            chapterID: checkReporting.ChapterID,
+            QuizID: checkReporting.QuizID,
+            CatID: checkReporting.CategoryID,
+            options: nextQuestion.GivenOptions.map((option) => ({
+              _id: option._id,
+              Question: option.Question,
+              Option: option.Option,
+              isCorrect: option.isCorrect,
+            })),
+          };
 
-        return res.send({
-          status: true,
-          RevisionID,
-          questionsWithOptions,
-          TotalQuestion,
-          CurrentIndex:CurrentIndex+1,
-          isFinished:TotalQuestion>CurrentIndex?false:true,
-        });
+          return res.send({
+            status: true,
+            RevisionID,
+            questionsWithOptions,
+            TotalQuestion,
+            CurrentIndex: CurrentIndex + 1,
+            isFinished: TotalQuestion > CurrentIndex ? false : true,
+          });
         } else {
           return res.send({
             status: false,
@@ -433,7 +430,7 @@ const getQuizByChapterForPractice = async (req, res) => {
             },
           },
         });
-
+        Questions.sort(() => Math.random() - 0.5);
         const filteredQuestions = await Questions.filter(
           (chapter) => chapter.Chapter.QuizID !== null
         ).map((chapter) => {
@@ -494,6 +491,7 @@ const getQuizByChapterForPractice = async (req, res) => {
                 ReportingID: addToReport._id,
                 QuestionID: question._id,
                 GivenOptions: givenOptionsIds,
+                //SelectedOption: correctOption ? correctOption._id : null,
                 CorrectOption: correctOption ? correctOption._id : null,
               });
               const addToReportDetails = await QuestionAndOptionData.save();
@@ -506,7 +504,13 @@ const getQuizByChapterForPractice = async (req, res) => {
           return res.send({
             status: true,
             RevisionID: addToReport._id,
-            questionsWithOptions,
+            questionsWithOptions:
+              questionsWithOptions.length > 1
+                ? questionsWithOptions[0]
+                : questionsWithOptions,
+            TotalQuestion: questionsWithOptions.length,
+            CurrentIndex: 1,
+            isFinished: false,
           });
         } else {
           return res.send({
@@ -524,6 +528,136 @@ const getQuizByChapterForPractice = async (req, res) => {
       return res.send({
         status: false,
         message: "Id is not valid",
+      });
+  } catch (error) {
+    console.error("Error getting Questions:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+const setPracticeComplete = async (req, res) => {
+  try {
+    const { RevisionID } = req.params;
+    if (isValidObjectId(RevisionID)) {
+      const checkIsStarted = await ReportingMdl.findOne({
+        UserID: req.userDetails._id,
+        _id: RevisionID,
+        TestType: "practice",
+      });
+      if (checkIsStarted) {
+        if (checkIsStarted.EndDate) {
+          return res.send({
+            status: false,
+            message: "Practice already completed",
+          });
+        } else {
+          const EndDate = new Date();
+          checkIsStarted.EndDate = EndDate;
+          checkIsStarted.status = "complete";
+
+          // Calculate time difference in milliseconds
+          const timeDiffMs = EndDate - checkIsStarted.StartDate;
+
+          // Convert milliseconds to hours, minutes, and seconds
+          const hours = Math.floor(timeDiffMs / (1000 * 60 * 60));
+          const minutes = Math.floor(
+            (timeDiffMs % (1000 * 60 * 60)) / (1000 * 60)
+          );
+          const seconds = Math.floor((timeDiffMs % (1000 * 60)) / 1000);
+
+          // Build completeTime string based on non-zero values
+          // Format each unit with leading zeros if necessary
+          const formattedHours = String(hours).padStart(2, "0");
+          const formattedMinutes = String(minutes).padStart(2, "0");
+          const formattedSeconds = String(seconds).padStart(2, "0");
+
+          // Construct completeTime in "hh:mm:ss" format
+          checkIsStarted.completeTime = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+          await checkIsStarted.save();
+          return res.send({ status: true, message: "Practice completed!" });
+        }
+      } else {
+        return res.send({ status: false, message: "In-valid Practice!" });
+      }
+    } else {
+      return res.send({ status: false, message: "ID is not valid!" });
+    }
+  } catch (error) {
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+const getPracticeNextQuestion = async (req, res) => {
+  try {
+    const {
+      RevisionID,
+      CurrentIndex,
+      TotalQuestion,
+      QuestionID,
+      SelectedOptionID,
+    } = req.body;
+    if (
+      isValidObjectId(RevisionID) &&
+      isValidObjectId(QuestionID) &&
+      isValidObjectId(SelectedOptionID)
+    ) {
+      const checkReporting = await ReportingMdl.findOne({
+        _id: RevisionID,
+        UserID: req.userDetails._id,
+      });
+      if (checkReporting) {
+        if (checkReporting.status == "in-process") {
+          //
+          if (SelectedOptionID) {
+            await ReportDetailsMdl.updateOne(
+              { ReportingID: RevisionID, QuestionID },
+              { $set: { SelectedOption: SelectedOptionID } }
+            );
+          }
+          // Get the next question based on the CurrentIndex
+          const nextQuestion = await ReportDetailsMdl.findOne({
+            ReportingID: RevisionID,
+            SelectedOption: { $exists: false },
+          }).populate("QuestionID GivenOptions CorrectOption");
+
+          var questionsWithOptions = {
+            Question: nextQuestion.QuestionID.Question,
+            imageURL: nextQuestion.QuestionID.imageURL,
+            AudioUrl: nextQuestion.QuestionID.AudioUrl,
+            _id: nextQuestion.QuestionID._id,
+            chapterID: checkReporting.ChapterID,
+            QuizID: checkReporting.QuizID,
+            CatID: checkReporting.CategoryID,
+            options: nextQuestion.GivenOptions.map((option) => ({
+              _id: option._id,
+              Question: option.Question,
+              Option: option.Option,
+              isCorrect: option.isCorrect,
+            })),
+          };
+
+          return res.send({
+            status: true,
+            RevisionID,
+            questionsWithOptions,
+            TotalQuestion,
+            CurrentIndex: CurrentIndex + 1,
+            isFinished: TotalQuestion > CurrentIndex ? false : true,
+          });
+        } else {
+          return res.send({
+            status: false,
+            message: "This Practice Is Completed!",
+          });
+        }
+      } else {
+        return res.send({
+          status: false,
+          message: "Practice Not Found!",
+        });
+      }
+    } else
+      return res.send({
+        status: false,
+        message: "ID(s) are not valid",
       });
   } catch (error) {
     console.error("Error getting Questions:", error.message);
@@ -619,7 +753,7 @@ const getQuizByChapterForTest = async (req, res) => {
             },
           },
         });
-
+        Questions.sort(() => Math.random() - 0.5);
         const filteredQuestions = await Questions.filter(
           (chapter) => chapter.Chapter.QuizID !== null
         ).map((chapter) => {
@@ -680,19 +814,35 @@ const getQuizByChapterForTest = async (req, res) => {
                 ReportingID: addToReport._id,
                 QuestionID: question._id,
                 GivenOptions: givenOptionsIds,
+                //SelectedOption: correctOption ? correctOption._id : null,
                 CorrectOption: correctOption ? correctOption._id : null,
               });
               const addToReportDetails = await QuestionAndOptionData.save();
+
+              // Remove the isCorrect field from each option
+              const sanitizedOptions = shuffledOptions.map(
+                ({ _id, Question, Option }) => ({
+                  _id,
+                  Question,
+                  Option,
+                })
+              );
               return {
                 ...question, // Spread the question data
-                options: shuffledOptions, // Attach the randomized options
+                options: sanitizedOptions, // Attach the randomized options
               };
             })
           );
           return res.send({
             status: true,
             RevisionID: addToReport._id,
-            questionsWithOptions,
+            questionsWithOptions:
+              questionsWithOptions.length > 1
+                ? questionsWithOptions[0]
+                : questionsWithOptions,
+            TotalQuestion: questionsWithOptions.length,
+            CurrentIndex: 1,
+            isFinished: false,
           });
         } else {
           return res.send({
@@ -716,10 +866,91 @@ const getQuizByChapterForTest = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+const getTestNextQuestion = async (req, res) => {
+  try {
+    const {
+      RevisionID,
+      CurrentIndex,
+      TotalQuestion,
+      QuestionID,
+      SelectedOptionID,
+    } = req.body;
+    if (
+      isValidObjectId(RevisionID) &&
+      isValidObjectId(QuestionID) &&
+      isValidObjectId(SelectedOptionID)
+    ) {
+      const checkReporting = await ReportingMdl.findOne({
+        _id: RevisionID,
+        UserID: req.userDetails._id,
+      });
+      if (checkReporting) {
+        if (checkReporting.status == "in-process") {
+          //
+          if (SelectedOptionID) {
+            await ReportDetailsMdl.updateOne(
+              { ReportingID: RevisionID, QuestionID },
+              { $set: { SelectedOption: SelectedOptionID } }
+            );
+          }
+          // Get the next question based on the CurrentIndex
+          const nextQuestion = await ReportDetailsMdl.findOne({
+            ReportingID: RevisionID,
+            SelectedOption: { $exists: false },
+          }).populate("QuestionID GivenOptions CorrectOption");
+
+          var questionsWithOptions = {
+            Question: nextQuestion.QuestionID.Question,
+            imageURL: nextQuestion.QuestionID.imageURL,
+            AudioUrl: nextQuestion.QuestionID.AudioUrl,
+            _id: nextQuestion.QuestionID._id,
+            chapterID: checkReporting.ChapterID,
+            QuizID: checkReporting.QuizID,
+            CatID: checkReporting.CategoryID,
+            options: nextQuestion.GivenOptions.map((option) => ({
+              _id: option._id,
+              Question: option.Question,
+              Option: option.Option,
+            })),
+          };
+
+          return res.send({
+            status: true,
+            RevisionID,
+            questionsWithOptions,
+            TotalQuestion,
+            CurrentIndex: CurrentIndex + 1,
+            isFinished: TotalQuestion > CurrentIndex ? false : true,
+          });
+        } else {
+          return res.send({
+            status: false,
+            message: "This Test Is Completed!",
+          });
+        }
+      } else {
+        return res.send({
+          status: false,
+          message: "Test Not Found!",
+        });
+      }
+    } else
+      return res.send({
+        status: false,
+        message: "ID(s) are not valid",
+      });
+  } catch (error) {
+    console.error("Error getting Questions:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
 module.exports = {
   getQuizByQuizChapterForRevision,
   getQuizByChapterForPractice,
   setRevisionComplete,
   getQuizByChapterForTest,
   getRevisionNextQuestion,
+  getPracticeNextQuestion,
+  getTestNextQuestion,
+  setPracticeComplete,
 };

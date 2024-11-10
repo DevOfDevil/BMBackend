@@ -402,6 +402,105 @@ const updateClient = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+const paymentDetails = async (req, res) => {
+  try {
+    const role = await RoleMdl.findOne({ RoleName: "user" });
+
+    if (!role)
+      return res.status(400).send({ status: false, message: "Role Not Found" });
+
+    const checkEmailExits = await UserServices.getUserBy({
+      RoleID: role._id,
+    });
+    if (!checkEmailExits) {
+      return res.send({ status: true, message: "User Not Exits" });
+    }
+
+    // Validate and process category IDs
+    const categoryPromises = categoryIds.map(async (categoryId) => {
+      if (!isValidObjectId(categoryId)) {
+        return {
+          status: false,
+          message: `Category with ID ${categoryId} is not a valid ObjectId`,
+        };
+      }
+
+      const category = await CategoryMdl.findById(categoryId); // Check if the category exists
+      if (!category) {
+        return {
+          status: false,
+          message: `Category with ID ${categoryId} does not exist`,
+        };
+      }
+
+      // Check if the category has child categories
+      const hasChildren = await CategoryMdl.findOne({
+        parentCategory: categoryId,
+      });
+      if (hasChildren) {
+        return {
+          status: false,
+          message: `Category with ID ${categoryId} has child categories`,
+        };
+      }
+
+      return { status: true, category }; // Category is valid
+    });
+
+    // Wait for all category checks to complete
+    const categoryResults = await Promise.all(categoryPromises);
+
+    // Filter out any errors
+    const errors = categoryResults.filter((result) => !result.status);
+
+    // If there are errors, respond with the validation issues
+    if (errors.length > 0) {
+      const errorMessages = errors.map((error) => error.message).join(", ");
+      return res.send({ status: false, message: errorMessages });
+    }
+
+    let updateUser = await UserServices.updateUser(clientID, {
+      Username: username,
+      FirstName: FirstName,
+      LastName: LastName,
+      EmailAddress: email,
+      Password: password,
+      categoryIDs: categoryIds,
+      DeviceType,
+      DeviceMac,
+      DniNieNumber: DniNumber,
+      IsResident: IsResident,
+      Education: Education,
+      ContactNumber: ContactNumber,
+      Address: Address,
+      City: City,
+      Gender: Gender,
+      ExpiryDate: ExpiryDate,
+      Status: Status,
+    });
+
+    if (updateUser) {
+      const updateDeviceMac = await DeviceMdl.findOneAndUpdate(
+        { user_id: updateUser._id },
+        {
+          device_name: DeviceType,
+          device_mac: DeviceMac,
+          updated: Date.now(),
+        }
+      );
+
+      return res.send({
+        status: true,
+        User: updateUser,
+      });
+    } else {
+      return res.send({ status: false, message: "Error Updating Permission!" });
+    }
+  } catch (error) {
+    console.error("Error creating user:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
 module.exports = {
   login,
   getAllUser,
