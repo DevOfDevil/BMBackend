@@ -6,4 +6,14 @@ module.exports = (router) => {
   router.post("/addClient", auth, UserController.addUser);
   router.post("/updateClient", auth, UserController.updateClient);
   router.post("/setClientPermission", auth, UserController.setClientPermission);
+  router.get(
+    "/getClientReportSummary/:ClientID",
+    auth,
+    UserController.getClientReportSummary
+  );
+  router.get(
+    "/getClientReportSummary/:ClientID/:ReportID",
+    auth,
+    UserController.getClientDetailReportSummary
+  );
 };

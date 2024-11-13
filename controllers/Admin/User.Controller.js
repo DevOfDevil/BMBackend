@@ -8,6 +8,9 @@ const CategoryMdl = require("../../models/Category");
 const CategoryPurchasedMdl = require("../../models/CategoryPurchased");
 const paymentMdl = require("../../models/paymentTransaction");
 
+const ReportDetailsMdl = require("../models/ReportDetails");
+const ReportingMdl = require("../models/Reporting");
+
 var jwt = require("jsonwebtoken");
 const config = require("../../config/Config");
 function isValidObjectId(id) {
@@ -501,10 +504,90 @@ const paymentDetails = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+
+const getClientReportSummary = async (req, res) => {
+  try {
+    const { clientID } = req.params;
+
+    const ReportSummary = await ReportingMdl.find({
+      UserID: clientID,
+    })
+      .populate({
+        path: "QuizID",
+        match: {
+          isDeleted: false,
+        },
+        select: { Title: 1, _id: 0 },
+        populate: {
+          path: "Category",
+          match: {
+            isDeleted: false,
+          },
+          select: { name: 1, _id: 0 },
+        },
+      })
+      .populate({
+        path: "ChapterID",
+        select: { Title: 1, _id: 0 },
+      })
+      .select({
+        TestType: 1,
+        status: 1,
+        StartDate: 1,
+        EndDate: 1,
+        completeTime: 1,
+        _id: 0,
+      });
+    return res.send({
+      status: true,
+      ReportSummary: ReportSummary,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+const getClientDetailReportSummary = async (req, res) => {
+  try {
+    const { clientID, ReportID } = req.params;
+
+    if (!isValidObjectId(ReportID)) {
+      return res.send({
+        status: false,
+        message: "Id is not Valid!",
+      });
+    }
+    const DetailReport = await ReportDetailsMdl.find({
+      ReportingID: ReportID,
+    })
+      .populate({
+        path: "QuestionID",
+        select: { Question: 1, _id: 0 },
+      })
+      .populate({
+        path: "SelectedOption",
+        select: { Option: 1, _id: 0 },
+      })
+      .populate({
+        path: "CorrectOption",
+        select: { Option: 1, _id: 0 },
+      })
+      .select({ QuestionID: 1, SelectedOption: 1, CorrectOption: 1, _id: 0 });
+    return res.send({
+      status: true,
+      DetailReport: DetailReport,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
 module.exports = {
   login,
   getAllUser,
   addUser,
   setClientPermission,
   updateClient,
+  getClientReportSummary,
+  getClientDetailReportSummary,
 };

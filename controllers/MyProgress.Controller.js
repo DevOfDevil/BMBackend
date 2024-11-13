@@ -51,7 +51,7 @@ const getMySummary = async (req, res) => {
         StartDate: 1,
         EndDate: 1,
         completeTime: 1,
-        _id: 0,
+        _id: 1,
       });
     return res.send({
       status: true,
