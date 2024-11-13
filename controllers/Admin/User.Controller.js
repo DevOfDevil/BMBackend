@@ -8,8 +8,8 @@ const CategoryMdl = require("../../models/Category");
 const CategoryPurchasedMdl = require("../../models/CategoryPurchased");
 const paymentMdl = require("../../models/paymentTransaction");
 
-const ReportDetailsMdl = require("../models/ReportDetails");
-const ReportingMdl = require("../models/Reporting");
+const ReportDetailsMdl = require("../../models/ReportDetails");
+const ReportingMdl = require("../../models/Reporting");
 
 var jwt = require("jsonwebtoken");
 const config = require("../../config/Config");
@@ -536,7 +536,7 @@ const getClientReportSummary = async (req, res) => {
         StartDate: 1,
         EndDate: 1,
         completeTime: 1,
-        _id: 0,
+        _id: 1,
       });
     return res.send({
       status: true,
