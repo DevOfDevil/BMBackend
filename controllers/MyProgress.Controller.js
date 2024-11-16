@@ -71,6 +71,24 @@ const getDetailReport = async (req, res) => {
         message: "Id is not Valid!",
       });
     }
+
+    const myReportSummary = await ReportingMdl.findOne({
+      UserID: req.userDetails._id,
+      _id: ReportID,
+    }).select({
+      status: 1,
+      TestType: 1,
+      StartDate: 1,
+      completeTime: 1,
+      ResultPercentage: 1,
+    });
+
+    if (!myReportSummary) {
+      return res.send({
+        status: false,
+        message: "This is Not Your Report!",
+      });
+    }
     const mySummary = await ReportDetailsMdl.find({
       ReportingID: ReportID,
     })
@@ -90,6 +108,7 @@ const getDetailReport = async (req, res) => {
     return res.send({
       status: true,
       mySummary: mySummary,
+      myReportSummary: myReportSummary,
     });
   } catch (error) {
     console.error("Error getting summary:", error.message);
