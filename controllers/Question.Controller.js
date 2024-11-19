@@ -585,6 +585,7 @@ const setPracticeComplete = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+/*
 const getPracticeNextQuestion = async (req, res) => {
   try {
     const {
@@ -664,7 +665,179 @@ const getPracticeNextQuestion = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+*/
+const getPracticeNextQuestion = async (req, res) => {
+  try {
+    const { RevisionID, CurrentIndex, NextIndex } = req.body;
+    if (isValidObjectId(RevisionID)) {
+      const checkReporting = await ReportingMdl.findOne({
+        _id: RevisionID,
+        UserID: req.userDetails._id,
+      });
+      if (checkReporting) {
+        if (checkReporting.status == "in-process") {
+          //getTotalCount
+          const TotalQuestion = await ReportDetailsMdl.countDocuments({
+            ReportingID: RevisionID,
+          });
+          const TotalAnsweredQuestion = await ReportDetailsMdl.countDocuments({
+            ReportingID: RevisionID,
+            SelectedOption: { $exists: true },
+          });
+          if (NextIndex > TotalQuestion) {
+            return res.send({
+              status: false,
+              message: "Index Out Of Scope!",
+            });
+          }
+          if (NextIndex < 1) {
+            return res.send({
+              status: false,
+              message: "Index Out Of Scope!",
+            });
+          }
+          const RealNext = NextIndex - 1;
+          // Get the next question based on the CurrentIndex
+          const nextQuestion = await ReportDetailsMdl.find({
+            ReportingID: RevisionID,
+          })
+            .sort({ _id: 1 }) // Ensure consistent ordering
+            .skip(RealNext)
+            .limit(1)
+            .populate("QuestionID GivenOptions CorrectOption")
+            .exec();
+          const questionData = nextQuestion[0];
+          var questionsWithOptions = {
+            Question: questionData.QuestionID.Question,
+            imageURL: questionData.QuestionID.imageURL,
+            AudioUrl: questionData.QuestionID.AudioUrl,
+            _id: questionData.QuestionID._id,
+            chapterID: checkReporting.ChapterID,
+            QuizID: checkReporting.QuizID,
+            CatID: checkReporting.CategoryID,
+            options: questionData.GivenOptions.map((option) => ({
+              _id: option._id,
+              Question: option.Question,
+              Option: option.Option,
+              isCorrect: option.isCorrect,
+            })),
+          };
+          return res.send({
+            status: true,
+            RevisionID,
+            questionsWithOptions,
+            isAnswered: questionData.SelectedOption ? true : false,
+            selectedOption: questionData.SelectedOption
+              ? questionData.SelectedOption
+              : "",
+            TotalQuestion,
+            CurrentIndex: NextIndex,
+            isFinished: TotalQuestion == TotalAnsweredQuestion ? true : false,
+          });
+        } else {
+          return res.send({
+            status: false,
+            message: "This Practice Is Completed!",
+          });
+        }
+      } else {
+        return res.send({
+          status: false,
+          message: "Practice Not Found!",
+        });
+      }
+    } else
+      return res.send({
+        status: false,
+        message: "ID(s) are not valid",
+      });
+  } catch (error) {
+    console.error("Error getting Questions:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
+const submitPracticeAnswer = async (req, res) => {
+  try {
+    const { RevisionID, CurrentIndex, QuestionID, SelectedOptionID } = req.body;
+    if (
+      isValidObjectId(RevisionID) &&
+      isValidObjectId(QuestionID) &&
+      isValidObjectId(SelectedOptionID)
+    ) {
+      const checkReporting = await ReportingMdl.findOne({
+        _id: RevisionID,
+        UserID: req.userDetails._id,
+      });
+      if (checkReporting) {
+        if (checkReporting.status == "in-process") {
+          //getTotalCount
+          const TotalQuestion = await ReportDetailsMdl.countDocuments({
+            ReportingID: RevisionID,
+          });
+          const TotalAnsweredQuestion = await ReportDetailsMdl.countDocuments({
+            ReportingID: RevisionID,
+            SelectedOption: { $exists: true },
+          });
 
+          // Get the next question based on the CurrentIndex
+          const nextQuestion = await ReportDetailsMdl.find({
+            ReportingID: RevisionID,
+          })
+            .sort({ _id: 1 }) // Ensure consistent ordering
+            .skip(RealNext)
+            .limit(1)
+            .populate("QuestionID GivenOptions CorrectOption")
+            .exec();
+          const questionData = nextQuestion[0];
+          var questionsWithOptions = {
+            Question: questionData.QuestionID.Question,
+            imageURL: questionData.QuestionID.imageURL,
+            AudioUrl: questionData.QuestionID.AudioUrl,
+            _id: questionData.QuestionID._id,
+            chapterID: checkReporting.ChapterID,
+            QuizID: checkReporting.QuizID,
+            CatID: checkReporting.CategoryID,
+            options: questionData.GivenOptions.map((option) => ({
+              _id: option._id,
+              Question: option.Question,
+              Option: option.Option,
+              isCorrect: option.isCorrect,
+            })),
+          };
+          return res.send({
+            status: true,
+            RevisionID,
+            questionsWithOptions,
+            isAnswered: questionData.SelectedOption ? true : false,
+            selectedOption: questionData.SelectedOption
+              ? questionData.SelectedOption
+              : "",
+            TotalQuestion,
+            CurrentIndex: NextIndex,
+            isFinished: TotalQuestion == TotalAnsweredQuestion ? true : false,
+          });
+        } else {
+          return res.send({
+            status: false,
+            message: "This Practice Is Completed!",
+          });
+        }
+      } else {
+        return res.send({
+          status: false,
+          message: "Practice Not Found!",
+        });
+      }
+    } else
+      return res.send({
+        status: false,
+        message: "ID(s) are not valid",
+      });
+  } catch (error) {
+    console.error("Error getting Questions:", error.message);
+    return res.send({ status: false, message: "Something went wrong!" });
+  }
+};
 const getQuizByChapterForTest = async (req, res) => {
   try {
     const { ChapterID } = req.params;

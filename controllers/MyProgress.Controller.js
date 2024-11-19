@@ -52,7 +52,8 @@ const getMySummary = async (req, res) => {
         EndDate: 1,
         completeTime: 1,
         _id: 1,
-      });
+      })
+      .sort({ createdAt: -1 });
     return res.send({
       status: true,
       mySummary: mySummary,
