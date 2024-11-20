@@ -40,6 +40,7 @@ module.exports = (router) => {
     QuestionController.submitPracticeAnswer
   );
 
+  //Test Route
   router.get(
     "/questions/test/getQuizByChapter/:ChapterID",
     auth,
@@ -49,6 +50,16 @@ module.exports = (router) => {
     "/questions/test/getNextQuestion",
     auth,
     QuestionController.getTestNextQuestion
+  );
+  router.post(
+    "/questions/test/submitAnswer",
+    auth,
+    QuestionController.submitTestAnswer
+  );
+  router.get(
+    "/questions/test/complete/:RevisionID",
+    auth,
+    QuestionController.setTestComplete
   );
   /*
   router.post(

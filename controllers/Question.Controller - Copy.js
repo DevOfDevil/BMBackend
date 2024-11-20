@@ -733,7 +733,6 @@ const getPracticeNextQuestion = async (req, res) => {
       const checkReporting = await ReportingMdl.findOne({
         _id: RevisionID,
         UserID: req.userDetails._id,
-        TestType: "practice",
       });
       if (checkReporting) {
         if (checkReporting.status == "in-process") {
@@ -828,7 +827,6 @@ const submitPracticeAnswer = async (req, res) => {
       const checkReporting = await ReportingMdl.findOne({
         _id: RevisionID,
         UserID: req.userDetails._id,
-        TestType: "practice",
       });
       if (checkReporting) {
         if (checkReporting.status == "in-process") {
@@ -1093,7 +1091,6 @@ const getQuizByChapterForTest = async (req, res) => {
             CatID: CategoryID,
             QuizID,
             chapterID: ChapterID,
-            chapterTitle,
           } = filteredQuestions[0];
 
           // Add chapter question to reporting
@@ -1133,44 +1130,30 @@ const getQuizByChapterForTest = async (req, res) => {
                 CorrectOption: correctOption ? correctOption._id : null,
               });
               const addToReportDetails = await QuestionAndOptionData.save();
+
+              // Remove the isCorrect field from each option
+              const sanitizedOptions = shuffledOptions.map(
+                ({ _id, Question, Option }) => ({
+                  _id,
+                  Question,
+                  Option,
+                })
+              );
               return {
                 ...question, // Spread the question data
-                options: shuffledOptions, // Attach the randomized options
+                options: sanitizedOptions, // Attach the randomized options
               };
             })
           );
-
-          // Get the next question based on the CurrentIndex
-          const nextQuestion = await ReportDetailsMdl.find({
-            ReportingID: addToReport._id,
-          })
-            .sort({ _id: 1 }) // Ensure consistent ordering
-            .limit(1)
-            .populate("QuestionID GivenOptions CorrectOption")
-            .exec();
-          const questionData = nextQuestion[0];
-          var questionsWithOptionsFirst = {
-            Question: questionData.QuestionID.Question,
-            imageURL: questionData.QuestionID.imageURL,
-            AudioUrl: questionData.QuestionID.AudioUrl,
-            _id: questionData.QuestionID._id,
-            chapterID: ChapterID,
-            QuizID: QuizID,
-            CatID: CategoryID,
-            options: questionData.GivenOptions.map((option) => ({
-              _id: option._id,
-              Question: option.Question,
-              Option: option.Option,
-            })),
-          };
-
           return res.send({
             status: true,
             RevisionID: addToReport._id,
-            questionsWithOptions: questionsWithOptionsFirst,
+            questionsWithOptions:
+              questionsWithOptions.length > 1
+                ? questionsWithOptions[0]
+                : questionsWithOptions,
             TotalQuestion: questionsWithOptions.length,
             CurrentIndex: 1,
-            chapterTitle: chapterTitle,
             isFinished: false,
           });
         } else {
@@ -1197,71 +1180,59 @@ const getQuizByChapterForTest = async (req, res) => {
 };
 const getTestNextQuestion = async (req, res) => {
   try {
-    const { RevisionID, CurrentIndex, NextIndex } = req.body;
-    if (isValidObjectId(RevisionID)) {
+    const {
+      RevisionID,
+      CurrentIndex,
+      TotalQuestion,
+      QuestionID,
+      SelectedOptionID,
+    } = req.body;
+    if (
+      isValidObjectId(RevisionID) &&
+      isValidObjectId(QuestionID) &&
+      isValidObjectId(SelectedOptionID)
+    ) {
       const checkReporting = await ReportingMdl.findOne({
         _id: RevisionID,
         UserID: req.userDetails._id,
-        TestType: "test",
       });
       if (checkReporting) {
         if (checkReporting.status == "in-process") {
-          //getTotalCount
-          const TotalQuestion = await ReportDetailsMdl.countDocuments({
-            ReportingID: RevisionID,
-          });
-          const TotalAnsweredQuestion = await ReportDetailsMdl.countDocuments({
-            ReportingID: RevisionID,
-            SelectedOption: { $exists: true },
-          });
-          if (NextIndex > TotalQuestion) {
-            return res.send({
-              status: false,
-              message: "Index Out Of Scope!",
-            });
+          //
+          if (SelectedOptionID) {
+            await ReportDetailsMdl.updateOne(
+              { ReportingID: RevisionID, QuestionID },
+              { $set: { SelectedOption: SelectedOptionID } }
+            );
           }
-          if (NextIndex < 1) {
-            return res.send({
-              status: false,
-              message: "Index Out Of Scope!",
-            });
-          }
-          const RealNext = NextIndex - 1;
           // Get the next question based on the CurrentIndex
-          const nextQuestion = await ReportDetailsMdl.find({
+          const nextQuestion = await ReportDetailsMdl.findOne({
             ReportingID: RevisionID,
-          })
-            .sort({ _id: 1 }) // Ensure consistent ordering
-            .skip(RealNext)
-            .limit(1)
-            .populate("QuestionID GivenOptions CorrectOption")
-            .exec();
-          const questionData = nextQuestion[0];
+            SelectedOption: { $exists: false },
+          }).populate("QuestionID GivenOptions CorrectOption");
+
           var questionsWithOptions = {
-            Question: questionData.QuestionID.Question,
-            imageURL: questionData.QuestionID.imageURL,
-            AudioUrl: questionData.QuestionID.AudioUrl,
-            _id: questionData.QuestionID._id,
+            Question: nextQuestion.QuestionID.Question,
+            imageURL: nextQuestion.QuestionID.imageURL,
+            AudioUrl: nextQuestion.QuestionID.AudioUrl,
+            _id: nextQuestion.QuestionID._id,
             chapterID: checkReporting.ChapterID,
             QuizID: checkReporting.QuizID,
             CatID: checkReporting.CategoryID,
-            options: questionData.GivenOptions.map((option) => ({
+            options: nextQuestion.GivenOptions.map((option) => ({
               _id: option._id,
               Question: option.Question,
               Option: option.Option,
             })),
           };
+
           return res.send({
             status: true,
             RevisionID,
             questionsWithOptions,
-            isAnswered: questionData.SelectedOption ? true : false,
-            selectedOption: questionData.SelectedOption
-              ? questionData.SelectedOption
-              : "",
             TotalQuestion,
-            CurrentIndex: NextIndex,
-            isFinished: TotalQuestion == TotalAnsweredQuestion ? true : false,
+            CurrentIndex: CurrentIndex + 1,
+            isFinished: TotalQuestion > CurrentIndex ? false : true,
           });
         } else {
           return res.send({
@@ -1285,225 +1256,6 @@ const getTestNextQuestion = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
-const submitTestAnswer = async (req, res) => {
-  try {
-    const { RevisionID, CurrentIndex, QuestionID, SelectedOptionID } = req.body;
-    if (
-      isValidObjectId(RevisionID) &&
-      isValidObjectId(QuestionID) &&
-      isValidObjectId(SelectedOptionID)
-    ) {
-      const checkReporting = await ReportingMdl.findOne({
-        _id: RevisionID,
-        UserID: req.userDetails._id,
-        TestType: "test",
-      });
-      if (checkReporting) {
-        if (checkReporting.status == "in-process") {
-          const checkQuestion = await ReportDetailsMdl.findOne({
-            ReportingID: RevisionID,
-            QuestionID: QuestionID,
-            SelectedOption: { $exists: false },
-          });
-          if (checkQuestion) {
-            const UpdateQuestion = await ReportDetailsMdl.updateOne(
-              { ReportingID: RevisionID, QuestionID: QuestionID },
-              { $set: { SelectedOption: SelectedOptionID } }
-            );
-            //getQuestionTotalCount
-            const TotalQuestion = await ReportDetailsMdl.countDocuments({
-              ReportingID: RevisionID,
-            });
-            //TotalAnsweredCount
-            const TotalAnsweredQuestion = await ReportDetailsMdl.countDocuments(
-              {
-                ReportingID: RevisionID,
-                SelectedOption: { $exists: true },
-              }
-            );
-
-            const TotalCorrectCountQuestion =
-              await ReportDetailsMdl.countDocuments({
-                ReportingID: RevisionID,
-                SelectedOption: { $exists: true, $ne: null }, // Ensures SelectedOption exists and is not null
-                $expr: { $eq: ["$SelectedOption", "$CorrectOption"] }, // Compares SelectedOption with CorrectOption
-              });
-            const TotalWrongCountQuestion =
-              await ReportDetailsMdl.countDocuments({
-                ReportingID: RevisionID,
-                SelectedOption: { $exists: true, $ne: null }, // Ensures SelectedOption exists and is not null
-                $expr: { $ne: ["$SelectedOption", "$CorrectOption"] }, // Compares SelectedOption with CorrectOption
-              });
-
-            const allQuestions = await ReportDetailsMdl.find({
-              ReportingID: RevisionID,
-            })
-              .sort({ _id: 1 }) // Sort by _id for consistent order
-              .select("_id QuestionID SelectedOption") // Fetch only _id and SelectedOption fields
-              .lean(); // Convert Mongoose documents to plain JavaScript objects
-
-            // Extract question IDs and unanswered status
-            const questionIds = allQuestions.map((question) => ({
-              id: question._id.toString(),
-              QuestionID: question.QuestionID.toString(),
-              isAnswered: question.SelectedOption ? true : false,
-            }));
-            // Find the index of the current question ID
-            const currentQIndex = questionIds.findIndex(
-              (q) => q.QuestionID === QuestionID.toString()
-            );
-            // Determine the next question
-            let nextQuestion = null;
-            let selectedIndex = 0;
-            for (let i = currentQIndex + 1; i < questionIds.length; i++) {
-              if (!questionIds[i].isAnswered) {
-                selectedIndex = i + 1;
-                nextQuestion = await ReportDetailsMdl.findById(
-                  questionIds[i].id
-                )
-                  .populate("QuestionID GivenOptions CorrectOption") // Populate references
-                  .exec();
-                break;
-              }
-            }
-            // If no unanswered question is found after the current one, look for the earliest unanswered question
-            if (!nextQuestion) {
-              for (let i = 0; i < questionIds.length; i++) {
-                if (!questionIds[i].isAnswered) {
-                  selectedIndex = i + 1;
-                  nextQuestion = await ReportDetailsMdl.findById(
-                    questionIds[i].id
-                  )
-                    .populate("QuestionID GivenOptions CorrectOption") // Populate references
-                    .exec();
-                  break;
-                }
-              }
-            }
-            if (!nextQuestion) {
-              selectedIndex = currentQIndex + 1;
-              nextQuestion = await ReportDetailsMdl.findOne({
-                ReportingID: RevisionID,
-                QuestionID: QuestionID,
-              }).populate("QuestionID GivenOptions CorrectOption"); // Populate references
-            }
-
-            const questionData = nextQuestion;
-            var questionsWithOptions = {
-              Question: questionData.QuestionID.Question,
-              imageURL: questionData.QuestionID.imageURL,
-              AudioUrl: questionData.QuestionID.AudioUrl,
-              _id: questionData.QuestionID._id,
-              chapterID: checkReporting.ChapterID,
-              QuizID: checkReporting.QuizID,
-              CatID: checkReporting.CategoryID,
-              options: questionData.GivenOptions.map((option) => ({
-                _id: option._id,
-                Question: option.Question,
-                Option: option.Option,
-              })),
-            };
-
-            return res.send({
-              status: true,
-              RevisionID,
-              questionsWithOptions,
-              isAnswered: questionData.SelectedOption ? true : false,
-              selectedOption: questionData.SelectedOption
-                ? questionData.SelectedOption
-                : "",
-              TotalQuestion,
-              CurrentIndex: selectedIndex,
-              isFinished: TotalQuestion == TotalAnsweredQuestion ? true : false,
-              //CorrectCount: TotalCorrectCountQuestion,
-              //WrongCount: TotalWrongCountQuestion,
-            });
-          } else {
-            return res.send({
-              status: false,
-              message: "Question Already Answered!",
-            });
-          }
-        } else {
-          return res.send({
-            status: false,
-            message: "This Practice Is Completed!",
-          });
-        }
-      } else {
-        return res.send({
-          status: false,
-          message: "Practice Not Found!",
-        });
-      }
-    } else
-      return res.send({
-        status: false,
-        message: "ID(s) are not valid",
-      });
-  } catch (error) {
-    console.error("Error getting Questions:", error.message);
-    return res.send({ status: false, message: "Something went wrong!" });
-  }
-};
-const setTestComplete = async (req, res) => {
-  try {
-    const { RevisionID } = req.params;
-    if (isValidObjectId(RevisionID)) {
-      const checkIsStarted = await ReportingMdl.findOne({
-        UserID: req.userDetails._id,
-        _id: RevisionID,
-        TestType: "test",
-        status: "in-process",
-      });
-      if (checkIsStarted) {
-        const EndDate = new Date();
-        checkIsStarted.EndDate = EndDate;
-        checkIsStarted.status = "complete";
-
-        // Calculate time difference in milliseconds
-        const timeDiffMs = EndDate - checkIsStarted.StartDate;
-
-        // Convert milliseconds to hours, minutes, and seconds
-        const hours = Math.floor(timeDiffMs / (1000 * 60 * 60));
-        const minutes = Math.floor(
-          (timeDiffMs % (1000 * 60 * 60)) / (1000 * 60)
-        );
-        const seconds = Math.floor((timeDiffMs % (1000 * 60)) / 1000);
-
-        // Build completeTime string based on non-zero values
-        // Format each unit with leading zeros if necessary
-        const formattedHours = String(hours).padStart(2, "0");
-        const formattedMinutes = String(minutes).padStart(2, "0");
-        const formattedSeconds = String(seconds).padStart(2, "0");
-
-        // Construct completeTime in "hh:mm:ss" format
-        checkIsStarted.completeTime = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
-
-        const ResultPercentage = await calculatePercentage(RevisionID).catch(
-          (err) => {
-            return 0; // Return 0 in case of an error
-          }
-        );
-        checkIsStarted.ResultPercentage = ResultPercentage;
-        await checkIsStarted.save();
-        return res.send({
-          status: true,
-          message: `Test completed. Your score is ${ResultPercentage.toFixed(
-            2
-          )}%`,
-          checkIsStarted,
-        });
-      } else {
-        return res.send({ status: false, message: "In-valid Practice!" });
-      }
-    } else {
-      return res.send({ status: false, message: "ID is not valid!" });
-    }
-  } catch (error) {
-    return res.send({ status: false, message: "Something went wrong!" });
-  }
-};
 module.exports = {
   getQuizByQuizChapterForRevision,
   getQuizByChapterForPractice,
@@ -1514,6 +1266,4 @@ module.exports = {
   getTestNextQuestion,
   setPracticeComplete,
   submitPracticeAnswer,
-  submitTestAnswer,
-  setTestComplete,
 };
