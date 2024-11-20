@@ -34,6 +34,12 @@ module.exports = (router) => {
     auth,
     QuestionController.getPracticeNextQuestion
   );
+  router.post(
+    "/questions/practice/submitAnswer",
+    auth,
+    QuestionController.submitPracticeAnswer
+  );
+
   router.get(
     "/questions/test/getQuizByChapter/:ChapterID",
     auth,

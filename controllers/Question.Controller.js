@@ -770,52 +770,131 @@ const submitPracticeAnswer = async (req, res) => {
       });
       if (checkReporting) {
         if (checkReporting.status == "in-process") {
-          //getTotalCount
-          const TotalQuestion = await ReportDetailsMdl.countDocuments({
+          const checkQuestion = await ReportDetailsMdl.findOne({
             ReportingID: RevisionID,
+            QuestionID: QuestionID,
+            SelectedOption: { $exists: false },
           });
-          const TotalAnsweredQuestion = await ReportDetailsMdl.countDocuments({
-            ReportingID: RevisionID,
-            SelectedOption: { $exists: true },
-          });
+          if (checkQuestion) {
+            const UpdateQuestion = await ReportDetailsMdl.updateOne(
+              { ReportingID: RevisionID, QuestionID: QuestionID },
+              { $set: { SelectedOption: SelectedOptionID } }
+            );
+            //getQuestionTotalCount
+            const TotalQuestion = await ReportDetailsMdl.countDocuments({
+              ReportingID: RevisionID,
+            });
+            //TotalAnsweredCount
+            const TotalAnsweredQuestion = await ReportDetailsMdl.countDocuments(
+              {
+                ReportingID: RevisionID,
+                SelectedOption: { $exists: true },
+              }
+            );
 
-          // Get the next question based on the CurrentIndex
-          const nextQuestion = await ReportDetailsMdl.find({
-            ReportingID: RevisionID,
-          })
-            .sort({ _id: 1 }) // Ensure consistent ordering
-            .skip(RealNext)
-            .limit(1)
-            .populate("QuestionID GivenOptions CorrectOption")
-            .exec();
-          const questionData = nextQuestion[0];
-          var questionsWithOptions = {
-            Question: questionData.QuestionID.Question,
-            imageURL: questionData.QuestionID.imageURL,
-            AudioUrl: questionData.QuestionID.AudioUrl,
-            _id: questionData.QuestionID._id,
-            chapterID: checkReporting.ChapterID,
-            QuizID: checkReporting.QuizID,
-            CatID: checkReporting.CategoryID,
-            options: questionData.GivenOptions.map((option) => ({
-              _id: option._id,
-              Question: option.Question,
-              Option: option.Option,
-              isCorrect: option.isCorrect,
-            })),
-          };
-          return res.send({
-            status: true,
-            RevisionID,
-            questionsWithOptions,
-            isAnswered: questionData.SelectedOption ? true : false,
-            selectedOption: questionData.SelectedOption
-              ? questionData.SelectedOption
-              : "",
-            TotalQuestion,
-            CurrentIndex: NextIndex,
-            isFinished: TotalQuestion == TotalAnsweredQuestion ? true : false,
-          });
+            const TotalCorrectCountQuestion =
+              await ReportDetailsMdl.countDocuments({
+                ReportingID: RevisionID,
+                SelectedOption: { $exists: true, $ne: null }, // Ensures SelectedOption exists and is not null
+                $expr: { $eq: ["$SelectedOption", "$CorrectOption"] }, // Compares SelectedOption with CorrectOption
+              });
+            const TotalWrongCountQuestion =
+              await ReportDetailsMdl.countDocuments({
+                ReportingID: RevisionID,
+                SelectedOption: { $exists: true, $ne: null }, // Ensures SelectedOption exists and is not null
+                $expr: { $ne: ["$SelectedOption", "$CorrectOption"] }, // Compares SelectedOption with CorrectOption
+              });
+
+            const allQuestions = await ReportDetailsMdl.find({
+              ReportingID: RevisionID,
+            })
+              .sort({ _id: 1 }) // Sort by _id for consistent order
+              .select("_id SelectedOption") // Fetch only _id and SelectedOption fields
+              .lean(); // Convert Mongoose documents to plain JavaScript objects
+
+            // Extract question IDs and unanswered status
+            const questionIds = allQuestions.map((question) => ({
+              id: question._id.toString(),
+              isAnswered: question.SelectedOption ? true : false,
+            }));
+
+            // Find the index of the current question ID
+            const currentQIndex = questionIds.findIndex(
+              (q) => q.id === QuestionID.toString()
+            );
+
+            // Determine the next question
+            let nextQuestion = null;
+            let selectedIndex = 0;
+            for (let i = currentQIndex + 1; i < questionIds.length; i++) {
+              if (!questionIds[i].isAnswered) {
+                selectedIndex = i + 1;
+                nextQuestion = await ReportDetailsMdl.findById(
+                  questionIds[i].id
+                )
+                  .populate("QuestionID GivenOptions CorrectOption") // Populate references
+                  .exec();
+                break;
+              }
+            }
+            // If no unanswered question is found after the current one, look for the earliest unanswered question
+            if (!nextQuestion) {
+              for (let i = 0; i < questionIds.length; i++) {
+                if (!questionIds[i].isAnswered) {
+                  selectedIndex = i + 1;
+                  nextQuestion = await ReportDetailsMdl.findById(
+                    questionIds[i].id
+                  )
+                    .populate("QuestionID GivenOptions CorrectOption") // Populate references
+                    .exec();
+                  break;
+                }
+              }
+            }
+            if (!nextQuestion) {
+              selectedIndex = currentQIndex;
+              nextQuestion = await ReportDetailsMdl.findById(QuestionID)
+                .populate("QuestionID GivenOptions CorrectOption") // Populate references
+                .exec();
+            }
+            console.log("nextQuestion:=", nextQuestion);
+            const questionData = nextQuestion;
+            var questionsWithOptions = {
+              Question: questionData.QuestionID.Question,
+              imageURL: questionData.QuestionID.imageURL,
+              AudioUrl: questionData.QuestionID.AudioUrl,
+              _id: questionData.QuestionID._id,
+              chapterID: checkReporting.ChapterID,
+              QuizID: checkReporting.QuizID,
+              CatID: checkReporting.CategoryID,
+              options: questionData.GivenOptions.map((option) => ({
+                _id: option._id,
+                Question: option.Question,
+                Option: option.Option,
+                isCorrect: option.isCorrect,
+              })),
+            };
+
+            return res.send({
+              status: true,
+              RevisionID,
+              questionsWithOptions,
+              isAnswered: questionData.SelectedOption ? true : false,
+              selectedOption: questionData.SelectedOption
+                ? questionData.SelectedOption
+                : "",
+              TotalQuestion,
+              CurrentIndex: selectedIndex,
+              isFinished: TotalQuestion == TotalAnsweredQuestion ? true : false,
+              CorrectCount: TotalCorrectCountQuestion,
+              WrongCount: TotalWrongCountQuestion,
+            });
+          } else {
+            return res.send({
+              status: false,
+              message: "Question Already Answered!",
+            });
+          }
         } else {
           return res.send({
             status: false,
@@ -1126,4 +1205,5 @@ module.exports = {
   getPracticeNextQuestion,
   getTestNextQuestion,
   setPracticeComplete,
+  submitPracticeAnswer,
 };
