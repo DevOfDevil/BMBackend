@@ -534,6 +534,61 @@ const getQuizByChapterForPractice = async (req, res) => {
     return res.send({ status: false, message: "Something went wrong!" });
   }
 };
+
+const calculatePercentage = async (reportingID) => {
+  try {
+    const result = await ReportDetailsMdl.aggregate([
+      // Match documents with the given ReportingID
+      {
+        $match: { ReportingID: mongoose.Types.ObjectId(reportingID) },
+      },
+      // Add a field to check if the answer is correct
+      {
+        $addFields: {
+          isCorrect: { $eq: ["$SelectedOption", "$CorrectOption"] },
+        },
+      },
+      // Group and calculate total and correct answers
+      {
+        $group: {
+          _id: "$ReportingID",
+          totalQuestions: { $sum: 1 },
+          correctAnswers: {
+            $sum: { $cond: ["$isCorrect", 1, 0] },
+          },
+        },
+      },
+      // Add percentage calculation
+      {
+        $addFields: {
+          percentage: {
+            $multiply: [
+              { $divide: ["$correctAnswers", "$totalQuestions"] },
+              100,
+            ],
+          },
+        },
+      },
+    ]);
+
+    // Check if result exists
+    if (result.length > 0) {
+      const { totalQuestions, correctAnswers, percentage } = result[0];
+      console.log(
+        `Total Questions: ${totalQuestions}, Correct Answers: ${correctAnswers}, Percentage: ${percentage}%`
+      );
+      //return { totalQuestions, correctAnswers, percentage };
+      return percentage;
+    } else {
+      console.log("No records found for the given ReportingID.");
+      return 0.0;
+    }
+  } catch (error) {
+    console.error("Error calculating percentage:", error);
+    throw error;
+  }
+};
+
 const setPracticeComplete = async (req, res) => {
   try {
     const { RevisionID } = req.params;
@@ -542,39 +597,44 @@ const setPracticeComplete = async (req, res) => {
         UserID: req.userDetails._id,
         _id: RevisionID,
         TestType: "practice",
+        status: "in-process",
       });
       if (checkIsStarted) {
-        if (checkIsStarted.EndDate) {
-          return res.send({
-            status: false,
-            message: "Practice already completed",
-          });
-        } else {
-          const EndDate = new Date();
-          checkIsStarted.EndDate = EndDate;
-          checkIsStarted.status = "complete";
+        const EndDate = new Date();
+        checkIsStarted.EndDate = EndDate;
+        checkIsStarted.status = "complete";
 
-          // Calculate time difference in milliseconds
-          const timeDiffMs = EndDate - checkIsStarted.StartDate;
+        // Calculate time difference in milliseconds
+        const timeDiffMs = EndDate - checkIsStarted.StartDate;
 
-          // Convert milliseconds to hours, minutes, and seconds
-          const hours = Math.floor(timeDiffMs / (1000 * 60 * 60));
-          const minutes = Math.floor(
-            (timeDiffMs % (1000 * 60 * 60)) / (1000 * 60)
-          );
-          const seconds = Math.floor((timeDiffMs % (1000 * 60)) / 1000);
+        // Convert milliseconds to hours, minutes, and seconds
+        const hours = Math.floor(timeDiffMs / (1000 * 60 * 60));
+        const minutes = Math.floor(
+          (timeDiffMs % (1000 * 60 * 60)) / (1000 * 60)
+        );
+        const seconds = Math.floor((timeDiffMs % (1000 * 60)) / 1000);
 
-          // Build completeTime string based on non-zero values
-          // Format each unit with leading zeros if necessary
-          const formattedHours = String(hours).padStart(2, "0");
-          const formattedMinutes = String(minutes).padStart(2, "0");
-          const formattedSeconds = String(seconds).padStart(2, "0");
+        // Build completeTime string based on non-zero values
+        // Format each unit with leading zeros if necessary
+        const formattedHours = String(hours).padStart(2, "0");
+        const formattedMinutes = String(minutes).padStart(2, "0");
+        const formattedSeconds = String(seconds).padStart(2, "0");
 
-          // Construct completeTime in "hh:mm:ss" format
-          checkIsStarted.completeTime = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
-          await checkIsStarted.save();
-          return res.send({ status: true, message: "Practice completed!" });
-        }
+        // Construct completeTime in "hh:mm:ss" format
+        checkIsStarted.completeTime = `${formattedHours}:${formattedMinutes}:${formattedSeconds}`;
+
+        const ResultPercentage = await calculatePercentage(RevisionID).catch(
+          (err) => {
+            return 0; // Return 0 in case of an error
+          }
+        );
+        checkIsStarted.ResultPercentage = ResultPercentage;
+        await checkIsStarted.save();
+        return res.send({
+          status: true,
+          message: "Practice completed!",
+          checkIsStarted,
+        });
       } else {
         return res.send({ status: false, message: "In-valid Practice!" });
       }
@@ -809,20 +869,19 @@ const submitPracticeAnswer = async (req, res) => {
               ReportingID: RevisionID,
             })
               .sort({ _id: 1 }) // Sort by _id for consistent order
-              .select("_id SelectedOption") // Fetch only _id and SelectedOption fields
+              .select("_id QuestionID SelectedOption") // Fetch only _id and SelectedOption fields
               .lean(); // Convert Mongoose documents to plain JavaScript objects
 
             // Extract question IDs and unanswered status
             const questionIds = allQuestions.map((question) => ({
               id: question._id.toString(),
+              QuestionID: question.QuestionID.toString(),
               isAnswered: question.SelectedOption ? true : false,
             }));
-
             // Find the index of the current question ID
             const currentQIndex = questionIds.findIndex(
-              (q) => q.id === QuestionID.toString()
+              (q) => q.QuestionID === QuestionID.toString()
             );
-
             // Determine the next question
             let nextQuestion = null;
             let selectedIndex = 0;
@@ -852,12 +911,13 @@ const submitPracticeAnswer = async (req, res) => {
               }
             }
             if (!nextQuestion) {
-              selectedIndex = currentQIndex;
-              nextQuestion = await ReportDetailsMdl.findById(QuestionID)
-                .populate("QuestionID GivenOptions CorrectOption") // Populate references
-                .exec();
+              selectedIndex = currentQIndex + 1;
+              nextQuestion = await ReportDetailsMdl.findOne({
+                ReportingID: RevisionID,
+                QuestionID: QuestionID,
+              }).populate("QuestionID GivenOptions CorrectOption"); // Populate references
             }
-            console.log("nextQuestion:=", nextQuestion);
+
             const questionData = nextQuestion;
             var questionsWithOptions = {
               Question: questionData.QuestionID.Question,
