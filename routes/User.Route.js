@@ -6,6 +6,7 @@ module.exports = (router) => {
   router.post("/users/login", UserController.login);
 
   router.post("/users/signup", UserController.signup);
+  router.post("/users/preSignup", UserController.preSignup);
   router.get("/users/getMycategories", auth, UserController.getMycategories);
   router.get("/users/getMyQuizzes", auth, UserController.getMyQuizzes);
   router.get("/users/getMyChapters", auth, UserController.getMyChapters);

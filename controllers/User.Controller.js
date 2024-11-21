@@ -12,6 +12,9 @@ const ChapterMdl = require("../models/Chapter");
 var jwt = require("jsonwebtoken");
 const config = require("../config/Config");
 const { ObjectId } = mongoose.Types;
+const stripe = require("stripe")(
+  "sk_test_51O7dbmKUTG6arnypMWhX59RekK3BKuJRLdt8v0Jmaxfky62Wa7a33RWJQriDe0oqYBj6g3yCcrmU7Ag1SjZiLTsy00SyLfNEny"
+);
 
 function isValidObjectId(id) {
   return ObjectId.isValid(id) && String(new ObjectId(id)) === id;
@@ -594,6 +597,84 @@ const getMyCateogryTree = async (req, res) => {
   }
 };
 
+const preSignup = async (req, res) => {
+  try {
+    const { email, categoryIds } = req.body;
+
+    const checkEmailExits = await UserServices.getUserBy({
+      EmailAddress: email,
+    });
+    if (checkEmailExits) {
+      return res.send({ status: false, message: "Email Already Exits" });
+    }
+    // Validate and process category IDs
+    const categoryPromises = categoryIds.map(async (categoryId) => {
+      if (!isValidObjectId(categoryId)) {
+        return {
+          status: false,
+          message: `Category with ID ${categoryId} is not a valid ObjectId`,
+        };
+      }
+
+      const category = await CategoryMdl.findById(categoryId); // Check if the category exists
+      if (!category) {
+        return {
+          status: false,
+          message: `Category with ID ${categoryId} does not exist`,
+        };
+      }
+
+      // Check if the category has child categories
+      const hasChildren = await CategoryMdl.findOne({
+        parentCategory: categoryId,
+      });
+      if (hasChildren) {
+        return {
+          status: false,
+          message: `Category with ID ${categoryId} has child categories`,
+        };
+      }
+
+      return { status: true, category }; // Category is valid
+    });
+
+    // Wait for all category checks to complete
+    const categoryResults = await Promise.all(categoryPromises);
+
+    // Filter out any errors
+    const errors = categoryResults.filter((result) => !result.status);
+
+    // If there are errors, respond with the validation issues
+    if (errors.length > 0) {
+      const errorMessages = errors.map((error) => error.message).join(", ");
+      return res.status(400).send({ status: false, message: errorMessages });
+    }
+    const TotalAmount = categoryResults.reduce(
+      (sum, category) => sum + (category.category.Price || 0),
+      0
+    );
+    const CatDescription = categoryResults
+      .map((item) => item.category.name)
+      .join(", ");
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: TotalAmount * 100,
+      currency: "usd",
+      automatic_payment_methods: { enabled: true },
+      description: CatDescription, // Add the description here
+    });
+
+    return res.send({
+      status: true,
+      clientSecret: paymentIntent.client_secret,
+      TotalAmount,
+      CatDescription,
+    });
+  } catch (error) {
+    console.log(error.message);
+    res.status(500).json({ message: "Error during signup" });
+  }
+};
 module.exports = {
   login,
   signup,
@@ -602,4 +683,5 @@ module.exports = {
   getMyChapters,
   getMyCateogryTree,
   getChapterByQuizID,
+  preSignup,
 };
