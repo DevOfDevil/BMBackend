@@ -105,6 +105,7 @@ const signup = async (req, res) => {
       Address,
       City,
       Gender,
+      PaymentHash,
     } = req.body;
 
     const checkEmailExits = await UserServices.getUserBy({
@@ -172,6 +173,7 @@ const signup = async (req, res) => {
       City: City,
       Gender: Gender,
       token: "pre-user",
+      Status: "approved",
       PayType: "Online",
     });
     if (addUser) {
@@ -216,6 +218,9 @@ const signup = async (req, res) => {
       const addPayment = new paymentMdl({
         userID: updateUser._id,
         TotalPrice: TotalFee,
+        isPaid: true,
+        PaidAmount: TotalPrice,
+        TransactionHash: PaymentHash,
       });
       await addPayment.save();
       // Send response with user details
