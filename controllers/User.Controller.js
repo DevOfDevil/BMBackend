@@ -35,6 +35,18 @@ const login = async (req, res) => {
         message: "Email/Password is Incorrect!",
       });
     }
+    /*
+    Monthly Check
+    const currentDate = new Date(); // Get the current date and time
+
+    if (!user.ExpiryDate || new Date(user.ExpiryDate) < currentDate) {
+      return res.send({
+        status: false,
+        message:
+          "Your account has been expired! Please contact the administrator",
+      });
+    }
+    */
     var token = jwt.sign({ data: user._id }, config.jwt_secret, {
       expiresIn: config.jwt_expire,
     });
@@ -46,18 +58,29 @@ const login = async (req, res) => {
     const userDetails = await UserServices.getUserFrontendDetails(
       updateUser._id
     );
-    if (userDetails.Status == "pending") {
+    if (userDetails.Status == "expired") {
       const getPayment = await paymentMdl.findOne({ userID: updateUser._id });
       return res.send({
-        status: true,
-        userDetails: userDetails,
-        TotalFee: getPayment.TotalPrice,
+        status: false,
+        message:
+          "Account is idle due to payment.Please Contact administrator for fee. You need to pay $" +
+          getPayment.TotalPrice,
+      });
+    } else if (userDetails.Status == "pending") {
+      return res.send({
+        status: false,
+        message: "Account is idle.Please Contact administrator",
       });
     } else return res.send({ status: true, userDetails: userDetails });
   } catch (error) {
     console.error("Error creating user:", error.message);
     return res.send({ status: false, message: "Something went wrong!" });
   }
+};
+const addOneMonth = () => {
+  let currentDate = new Date(); // Get the current date
+  currentDate.setMonth(currentDate.getMonth() + 1); // Add one month
+  return currentDate;
 };
 /*
 const signup = async (req, res) => {
@@ -105,7 +128,9 @@ const signup = async (req, res) => {
       Address,
       City,
       Gender,
-      PaymentHash,
+      paymentStatus,
+      paymentIntentId,
+      paymentMethod,
     } = req.body;
 
     const checkEmailExits = await UserServices.getUserBy({
@@ -156,7 +181,7 @@ const signup = async (req, res) => {
       const errorMessages = errors.map((error) => error.message).join(", ");
       return res.status(400).send({ status: false, message: errorMessages });
     }
-
+    const ExpiryDate = await addOneMonth();
     // Add the user if all categories are valid
     let addUser = await UserServices.addUser({
       Username: username,
@@ -172,6 +197,7 @@ const signup = async (req, res) => {
       Address: Address,
       City: City,
       Gender: Gender,
+      ExpiryDate: ExpiryDate,
       token: "pre-user",
       Status: "approved",
       PayType: "Online",
@@ -190,6 +216,7 @@ const signup = async (req, res) => {
         expiresIn: config.jwt_expire,
       });
       //Add Category seperatly
+      console.log("categoryResults:=", categoryResults);
       const AddCatPaymentProcess = categoryResults.map(async (category) => {
         const addCatPayment = new CategoryPurchasedMdl({
           userID: addUser._id,
@@ -219,14 +246,23 @@ const signup = async (req, res) => {
         userID: updateUser._id,
         TotalPrice: TotalFee,
         isPaid: true,
-        PaidAmount: TotalPrice,
-        TransactionHash: PaymentHash,
+        PaidAmount: TotalFee,
+        TransactionHash: paymentIntentId,
       });
       await addPayment.save();
       // Send response with user details
-      return res.send({ status: true, userDetails: userDetails, TotalFee });
+      //return res.send({ status: true, userDetails: userDetails, TotalFee });
+      return res.send({
+        status: true,
+        message: "Account Created! Please Login",
+      });
     } else {
-      return res.send({ status: false, message: "Error during signup" });
+      return res.send({
+        status: false,
+        message:
+          "Error during signup!Please contact administrator with tnx ID " +
+          paymentIntentId,
+      });
     }
   } catch (error) {
     console.log(error.message);

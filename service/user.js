@@ -42,6 +42,8 @@ const addUser = async (payload) => {
       Address: payload.Address,
       City: payload.City,
       Gender: payload.Gender,
+      ExpiryDate: payload.ExpiryDate,
+      Status: payload.Status,
     });
 
     await post.save();
