@@ -549,7 +549,7 @@ const getClientReportSummary = async (req, res) => {
 };
 const getClientDetailReportSummary = async (req, res) => {
   try {
-    const { clientID, ReportID } = req.params;
+    const { ClientID, ReportID } = req.params;
 
     if (!isValidObjectId(ReportID)) {
       return res.send({
