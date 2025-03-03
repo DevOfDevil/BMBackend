@@ -191,7 +191,7 @@ const signup = async (req, res) => {
       Password: password,
       categoryIDs: categoryIds, // Save the array of category IDs
       DniNumber: DniNumber,
-      IsResident: IsResident ?? false,
+      IsResident: IsResident?.toString().trim() ? IsResident : false,
       Education: Education,
       ContactNumber: ContactNumber,
       Address: Address,
@@ -218,7 +218,6 @@ const signup = async (req, res) => {
         expiresIn: config.jwt_expire,
       });
       //Add Category seperatly
-      console.log("categoryResults:=", categoryResults);
       const AddCatPaymentProcess = categoryResults.map(async (category) => {
         const addCatPayment = new CategoryPurchasedMdl({
           userID: addUser._id,
