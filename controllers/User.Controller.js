@@ -191,7 +191,7 @@ const signup = async (req, res) => {
       Password: password,
       categoryIDs: categoryIds, // Save the array of category IDs
       DniNumber: DniNumber,
-      IsResident: IsResident,
+      IsResident: IsResident ?? false,
       Education: Education,
       ContactNumber: ContactNumber,
       Address: Address,
