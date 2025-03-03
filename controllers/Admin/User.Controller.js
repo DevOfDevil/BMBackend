@@ -507,10 +507,10 @@ const paymentDetails = async (req, res) => {
 
 const getClientReportSummary = async (req, res) => {
   try {
-    const { clientID } = req.params;
-
+    const { ClientID } = req.params;
+    console.log("clientID:=", ClientID);
     const ReportSummary = await ReportingMdl.find({
-      UserID: clientID,
+      UserID: ClientID,
     })
       .populate({
         path: "QuizID",
