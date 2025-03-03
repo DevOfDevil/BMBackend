@@ -9,10 +9,10 @@ const userSchema = new mongoose.Schema(
     Password: { type: String, required: true },
     DniNieNumber: { type: String, required: true },
     IsResident: { type: Boolean, required: true, default: false },
-    Education: { type: String, required: true },
+    Education: { type: String },
     ContactNumber: { type: String, required: true },
-    Address: { type: String, required: true },
-    City: { type: String, required: true },
+    Address: { type: String },
+    City: { type: String },
     Gender: {
       type: String,
       enum: ["Male", "Female", "Other"],

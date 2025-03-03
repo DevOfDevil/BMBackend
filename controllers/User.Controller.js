@@ -203,14 +203,16 @@ const signup = async (req, res) => {
       PayType: "Online",
     });
     if (addUser) {
-      //add Device Data
-      const AddDevic = new DeviceMdl({
-        device_name: DeviceType,
-        device_mac: DeviceMac,
-        user_id: addUser._id,
-        is_activated: true,
-      });
-      await AddDevic.save();
+      if (DeviceType?.trim() && DeviceMac?.trim()) {
+        //add Device Data
+        const AddDevic = new DeviceMdl({
+          device_name: DeviceType,
+          device_mac: DeviceMac,
+          user_id: addUser._id,
+          is_activated: true,
+        });
+        await AddDevic.save();
+      }
       // Generate JWT token
       var token = jwt.sign({ data: addUser._id }, config.jwt_secret, {
         expiresIn: config.jwt_expire,
